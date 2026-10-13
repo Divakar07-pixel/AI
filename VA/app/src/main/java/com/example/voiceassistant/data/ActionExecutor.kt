@@ -1,0 +1,235 @@
+package com.example.voiceassistant.data
+
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.AlarmClock
+import android.provider.MediaStore
+import android.provider.Settings
+import com.example.voiceassistant.domain.model.AssistantAction
+import com.example.voiceassistant.domain.model.ExecutionResult
+import com.example.voiceassistant.domain.model.SensitiveAction
+import com.example.voiceassistant.domain.model.SettingType
+
+class ActionExecutor(private val context: Context) {
+
+    /**
+     * Executes an approved [AssistantAction] safely.
+     */
+    fun execute(action: AssistantAction): ExecutionResult {
+        return try {
+            when (action) {
+                is AssistantAction.TellTime -> {
+                    ExecutionResult.Success(action.formattedTime)
+                }
+
+                is AssistantAction.TellDate -> {
+                    ExecutionResult.Success(action.formattedDate)
+                }
+
+                is AssistantAction.SetTimer -> {
+                    executeSetTimer(action.durationSeconds, action.label)
+                }
+
+                is AssistantAction.SetAlarm -> {
+                    executeSetAlarm(action.hour, action.minute, action.label)
+                }
+
+                is AssistantAction.OpenSetting -> {
+                    executeOpenSetting(action.settingType, action.displayName)
+                }
+
+                is AssistantAction.OpenApp -> {
+                    executeOpenApp(action.appName, action.packageName)
+                }
+
+                is AssistantAction.RequireConfirmation -> {
+                    ExecutionResult.Failure("Action requires explicit user confirmation before execution.")
+                }
+
+                is AssistantAction.Unknown -> {
+                    ExecutionResult.Failure(action.reason)
+                }
+            }
+        } catch (e: Exception) {
+            ExecutionResult.Failure("Failed to execute action: ${e.localizedMessage ?: "Unknown error"}")
+        }
+    }
+
+    /**
+     * Executes a confirmed sensitive action.
+     */
+    fun executeSensitiveAction(sensitiveAction: SensitiveAction): ExecutionResult {
+        return try {
+            when (sensitiveAction) {
+                is SensitiveAction.SendMessage -> {
+                    // Open SMS app pre-populated so the user can verify before final tap
+                    val uri = Uri.parse("smsto:${Uri.encode(sensitiveAction.recipient)}")
+                    val intent = Intent(Intent.ACTION_SENDTO, uri).apply {
+                        putExtra("sms_body", sensitiveAction.messageText)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    if (intent.resolveActivity(context.packageManager) != null) {
+                        context.startActivity(intent)
+                        ExecutionResult.Success("Opening messaging app to send: \"${sensitiveAction.messageText}\"")
+                    } else {
+                        ExecutionResult.Failure("No messaging application available on this device.")
+                    }
+                }
+
+                is SensitiveAction.MakePhoneCall -> {
+                    // Open dialer safely with contact/number pre-populated
+                    val dialUri = Uri.parse("tel:${Uri.encode(sensitiveAction.contactOrNumber)}")
+                    val dialIntent = Intent(Intent.ACTION_DIAL, dialUri).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    if (dialIntent.resolveActivity(context.packageManager) != null) {
+                        context.startActivity(dialIntent)
+                        ExecutionResult.Success("Dialer opened for '${sensitiveAction.contactOrNumber}'.")
+                    } else {
+                        ExecutionResult.Failure("No dialer application found.")
+                    }
+                }
+
+                is SensitiveAction.DeleteData -> {
+                    ExecutionResult.Success(
+                        "Action acknowledged. To safeguard your device, automated deletion of '${sensitiveAction.description}' is blocked. Please delete manually."
+                    )
+                }
+
+                is SensitiveAction.MakePurchase -> {
+                    ExecutionResult.Success(
+                        "Purchase requested for '${sensitiveAction.itemDescription}'. Automated purchases are blocked for your security."
+                    )
+                }
+
+                is SensitiveAction.ChangeSecuritySetting -> {
+                    val securityIntent = Intent(Settings.ACTION_SECURITY_SETTINGS).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(securityIntent)
+                    ExecutionResult.Success("Opened Security Settings for manual configuration.")
+                }
+            }
+        } catch (e: Exception) {
+            ExecutionResult.Failure("Could not complete action: ${e.localizedMessage}")
+        }
+    }
+
+    private fun executeSetTimer(seconds: Int, label: String): ExecutionResult {
+        val intent = Intent(AlarmClock.ACTION_SET_TIMER).apply {
+            putExtra(AlarmClock.EXTRA_LENGTH, seconds)
+            putExtra(AlarmClock.EXTRA_MESSAGE, label)
+            putExtra(AlarmClock.EXTRA_SKIP_UI, false)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        return if (intent.resolveActivity(context.packageManager) != null) {
+            context.startActivity(intent)
+            ExecutionResult.Success("Timer set for ${formatDuration(seconds)}.")
+        } else {
+            ExecutionResult.Failure("No clock or timer app available to set timer.")
+        }
+    }
+
+    private fun executeSetAlarm(hour: Int, minute: Int, label: String): ExecutionResult {
+        val intent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
+            putExtra(AlarmClock.EXTRA_HOUR, hour)
+            putExtra(AlarmClock.EXTRA_MINUTES, minute)
+            putExtra(AlarmClock.EXTRA_MESSAGE, label)
+            putExtra(AlarmClock.EXTRA_SKIP_UI, false)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        return if (intent.resolveActivity(context.packageManager) != null) {
+            context.startActivity(intent)
+            val timeString = String.format("%02d:%02d", hour, minute)
+            ExecutionResult.Success("Alarm set for $timeString.")
+        } else {
+            ExecutionResult.Failure("No clock app available to set alarm.")
+        }
+    }
+
+    private fun executeOpenSetting(settingType: SettingType, displayName: String): ExecutionResult {
+        val action = when (settingType) {
+            SettingType.WIFI -> Settings.ACTION_WIFI_SETTINGS
+            SettingType.BLUETOOTH -> Settings.ACTION_BLUETOOTH_SETTINGS
+            SettingType.DISPLAY -> Settings.ACTION_DISPLAY_SETTINGS
+            SettingType.BATTERY -> Settings.ACTION_BATTERY_SAVER_SETTINGS
+            SettingType.SOUND -> Settings.ACTION_SOUND_SETTINGS
+            SettingType.APPS -> Settings.ACTION_APPLICATION_SETTINGS
+            SettingType.GENERAL -> Settings.ACTION_SETTINGS
+        }
+
+        val intent = Intent(action).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        return try {
+            context.startActivity(intent)
+            ExecutionResult.Success("Opened $displayName.")
+        } catch (e: ActivityNotFoundException) {
+            // Fallback to general settings if specific sub-setting is unsupported on this OEM device
+            val fallback = Intent(Settings.ACTION_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(fallback)
+            ExecutionResult.Success("Opened General Settings (specific screen not supported on device).")
+        }
+    }
+
+    private fun executeOpenApp(appName: String, packageName: String?): ExecutionResult {
+        val pm = context.packageManager
+
+        // Special handling for Camera
+        if (appName.equals("Camera", ignoreCase = true)) {
+            val cameraIntent = Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            return if (cameraIntent.resolveActivity(pm) != null) {
+                context.startActivity(cameraIntent)
+                ExecutionResult.Success("Opening Camera.")
+            } else {
+                ExecutionResult.Failure("Camera app could not be launched.")
+            }
+        }
+
+        // Try package name launch intent if specified
+        if (!packageName.isNullOrBlank()) {
+            val launchIntent = pm.getLaunchIntentForPackage(packageName)
+            if (launchIntent != null) {
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(launchIntent)
+                return ExecutionResult.Success("Opening $appName.")
+            }
+        }
+
+        // Search installed apps by display label
+        val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+        }
+        val resolveInfoList = pm.queryIntentActivities(mainIntent, 0)
+        for (info in resolveInfoList) {
+            val label = info.loadLabel(pm).toString()
+            if (label.equals(appName, ignoreCase = true) || label.contains(appName, ignoreCase = true)) {
+                val intent = pm.getLaunchIntentForPackage(info.activityInfo.packageName)
+                if (intent != null) {
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(intent)
+                    return ExecutionResult.Success("Opening $label.")
+                }
+            }
+        }
+
+        return ExecutionResult.Failure("App '$appName' is not installed on this device.")
+    }
+
+    private fun formatDuration(seconds: Int): String {
+        return when {
+            seconds >= 3600 -> "${seconds / 3600} hour(s)"
+            seconds >= 60 -> "${seconds / 60} minute(s)"
+            else -> "$seconds seconds"
+        }
+    }
+}

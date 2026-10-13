@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Voice Assistant</string>
+    <string name="listening_service_channel_name">Voice Assistant Service</string>
+    <string name="listening_service_channel_desc">Persistent notification showing when the Voice Assistant is active or listening.</string>
+    <string name="service_listening_title">Voice Assistant Active</string>
+    <string name="service_listening_text">Push-to-talk ready. Foreground service running.</string>
+    <string name="service_stop_action">Stop</string>
+</resources>
