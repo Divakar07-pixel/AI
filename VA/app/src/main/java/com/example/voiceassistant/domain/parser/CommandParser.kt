@@ -48,8 +48,9 @@ class CommandParser(
      * Parses a spoken command into an [AssistantAction].
      */
     fun parseCommand(rawText: String): AssistantAction {
-        val normalized = rawText.trim().lowercase(Locale.ROOT)
+        val normalized = rawText.trim()
             .replace(Regex("\\s+"), " ")
+        val normalizedLowercase = normalized.lowercase(Locale.ROOT)
 
         if (normalized.isBlank()) {
             return AssistantAction.Unknown(rawText, "No speech recognized.")
@@ -59,19 +60,19 @@ class CommandParser(
         checkSensitiveAction(normalized)?.let { return it }
 
         // 2. Time & Date
-        checkTimeOrDate(normalized)?.let { return it }
+        checkTimeOrDate(normalizedLowercase)?.let { return it }
 
         // 3. Timers
-        checkTimer(normalized)?.let { return it }
+        checkTimer(normalizedLowercase)?.let { return it }
 
         // 4. Alarms
-        checkAlarm(normalized)?.let { return it }
+        checkAlarm(normalizedLowercase)?.let { return it }
 
         // 5. Settings screens
-        checkSettings(normalized)?.let { return it }
+        checkSettings(normalizedLowercase)?.let { return it }
 
         // 6. Open specific apps
-        checkOpenApp(normalized)?.let { return it }
+        checkOpenApp(normalizedLowercase)?.let { return it }
 
         // Not in allowlist
         return AssistantAction.Unknown(
@@ -125,8 +126,11 @@ class CommandParser(
         }
 
         // Deletion actions
-        if (text.startsWith("delete ") || text.startsWith("remove ") || text.startsWith("clear data")) {
-            val target = text.removePrefix("delete ").removePrefix("remove ").trim()
+        if (text.startsWith("delete ", ignoreCase = true) ||
+            text.startsWith("remove ", ignoreCase = true) ||
+            text.startsWith("clear data", ignoreCase = true)
+        ) {
+            val target = text.replaceFirst(Regex("^(?:delete|remove)\\s+", RegexOption.IGNORE_CASE), "").trim()
             return AssistantAction.RequireConfirmation(
                 action = SensitiveAction.DeleteData(target),
                 explanation = "High risk: Confirm deleting '$target'?"
@@ -134,8 +138,11 @@ class CommandParser(
         }
 
         // Purchases
-        if (text.startsWith("buy ") || text.startsWith("purchase ") || text.startsWith("order ")) {
-            val item = text.removePrefix("buy ").removePrefix("purchase ").removePrefix("order ").trim()
+        if (text.startsWith("buy ", ignoreCase = true) ||
+            text.startsWith("purchase ", ignoreCase = true) ||
+            text.startsWith("order ", ignoreCase = true)
+        ) {
+            val item = text.replaceFirst(Regex("^(?:buy|purchase|order)\\s+", RegexOption.IGNORE_CASE), "").trim()
             return AssistantAction.RequireConfirmation(
                 action = SensitiveAction.MakePurchase(item),
                 explanation = "Confirm commercial purchase or order for '$item'?"
@@ -143,7 +150,10 @@ class CommandParser(
         }
 
         // Security / Privacy changes
-        if (text.contains("security") || text.contains("password") || text.contains("pin") || text.contains("privacy setting")) {
+        val lowerText = text.lowercase(Locale.ROOT)
+        if (lowerText.contains("security") || lowerText.contains("password") ||
+            lowerText.contains("pin") || lowerText.contains("privacy setting")
+        ) {
             return AssistantAction.RequireConfirmation(
                 action = SensitiveAction.ChangeSecuritySetting(text),
                 explanation = "Warning: Security setting changes require manual interaction."
