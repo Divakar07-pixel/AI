@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Network access for the optional, server-backed AI chat feature -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- Audio recording for Speech-To-Text -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
