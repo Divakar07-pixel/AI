@@ -5,4 +5,5 @@
     <string name="service_listening_title">Voice Assistant Service Demo</string>
     <string name="service_listening_text">Service demo running; wake-word detection is not implemented.</string>
     <string name="service_stop_action">Stop</string>
+    <string name="device_admin_description">Optional permission to lock this phone when you explicitly say “lock my phone”. This does not unlock the phone or bypass its screen lock.</string>
 </resources>
