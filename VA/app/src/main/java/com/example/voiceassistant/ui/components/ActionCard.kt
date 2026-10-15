@@ -158,6 +158,12 @@ private fun getActionDetails(action: AssistantAction): Quadruple<ImageVector, St
             action.displayName,
             AssistantPrimary
         )
+        is AssistantAction.SearchYouTube -> Quadruple(
+            Icons.Default.Apps,
+            "Search YouTube",
+            "Searching for " + action.query,
+            AssistantPrimary
+        )
         is AssistantAction.LockDevice -> Quadruple(
             Icons.Default.Security,
             "Lock Device",
