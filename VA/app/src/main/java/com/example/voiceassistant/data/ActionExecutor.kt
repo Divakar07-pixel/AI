@@ -11,6 +11,7 @@ import android.provider.MediaStore
 import android.provider.Settings
 import com.example.voiceassistant.domain.model.AssistantAction
 import com.example.voiceassistant.domain.model.ExecutionResult
+import com.example.voiceassistant.domain.model.MessageChannel
 import com.example.voiceassistant.domain.model.SensitiveAction
 import com.example.voiceassistant.domain.model.SettingType
 import com.example.voiceassistant.service.AssistantDeviceAdminReceiver
@@ -69,21 +70,40 @@ class ActionExecutor(private val context: Context) {
         return try {
             when (sensitiveAction) {
                 is SensitiveAction.SendMessage -> {
-                    // Open SMS app pre-populated so the user can verify before final tap
                     val recipient = sensitiveAction.recipient.trim()
-                    val isPhoneNumber = recipient.matches(Regex("^\\+?[0-9() .-]{5,20}$"))
-                    val uri = if (isPhoneNumber) Uri.parse("smsto:${Uri.encode(recipient)}") else Uri.parse("smsto:")
-                    val intent = Intent(Intent.ACTION_SENDTO, uri).apply {
-                        putExtra("sms_body", sensitiveAction.messageText)
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    if (intent.resolveActivity(context.packageManager) != null) {
-                        context.startActivity(intent)
-                        val nextStep = if (isPhoneNumber) "Review the message and tap Send in your messaging app."
-                            else "Choose the contact '${recipient}', review the message, then tap Send."
-                        ExecutionResult.Success("Messaging app opened. $nextStep")
+                    if (sensitiveAction.channel == MessageChannel.WHATSAPP) {
+                        // Contact names cannot be resolved safely by the share intent. The user
+                        // chooses the exact WhatsApp recipient and taps Send manually.
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, sensitiveAction.messageText)
+                            setPackage("com.whatsapp")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        if (intent.resolveActivity(context.packageManager) != null) {
+                            context.startActivity(intent)
+                            ExecutionResult.Success(
+                                "WhatsApp opened with your message. Select '$recipient', review the text, and tap Send in WhatsApp."
+                            )
+                        } else {
+                            ExecutionResult.Failure("WhatsApp is not installed or cannot share a message on this device.")
+                        }
                     } else {
-                        ExecutionResult.Failure("No messaging application available on this device.")
+                        // Open SMS pre-populated; the user must review and tap Send.
+                        val isPhoneNumber = recipient.matches(Regex("^\\+?[0-9() .-]{5,20}$"))
+                        val uri = if (isPhoneNumber) Uri.parse("smsto:${Uri.encode(recipient)}") else Uri.parse("smsto:")
+                        val intent = Intent(Intent.ACTION_SENDTO, uri).apply {
+                            putExtra("sms_body", sensitiveAction.messageText)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        if (intent.resolveActivity(context.packageManager) != null) {
+                            context.startActivity(intent)
+                            val nextStep = if (isPhoneNumber) "Review the message and tap Send in your messaging app."
+                                else "Choose the contact '$recipient', review the message, then tap Send."
+                            ExecutionResult.Success("Messaging app opened. $nextStep")
+                        } else {
+                            ExecutionResult.Failure("No messaging application available on this device.")
+                        }
                     }
                 }
 
