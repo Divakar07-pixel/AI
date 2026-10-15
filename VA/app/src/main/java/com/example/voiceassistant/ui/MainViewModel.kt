@@ -158,14 +158,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             is AssistantAction.Unknown -> {
                 if (aiChatClient.isConfigured) {
                     viewModelScope.launch {
-                        _assistantState.value = AssistantState.Processing("Thinking…")
+                        _assistantState.value = AssistantState.Processing("Understanding command…")
                         try {
-                            val reply = aiChatClient.reply(_messages.value)
-                            _assistantState.value = AssistantState.Idle
-                            addMessage(MessageSender.ASSISTANT, reply, actionBadge = "AI")
-                            speakResponse(reply)
+                            // AI normalizes wording only; local allowlist and confirmation gates remain authoritative.
+                            val normalized = aiChatClient.interpretCommand(input)
+                            val adaptiveAction = if (normalized.isNotBlank()) commandParser.parseCommand(normalized) else action
+                            if (adaptiveAction !is AssistantAction.Unknown) {
+                                _plannedAction.value = adaptiveAction
+                                when (adaptiveAction) {
+                                    is AssistantAction.RequireConfirmation -> {
+                                        _assistantState.value = AssistantState.WaitingForConfirmation(
+                                            pendingAction = adaptiveAction.action,
+                                            prompt = adaptiveAction.explanation
+                                        )
+                                        speakResponse("${adaptiveAction.explanation}. Say 'confirm' to proceed or 'cancel' to abort.", preserveCurrentState = true)
+                                    }
+                                    else -> executeParsedAction(adaptiveAction)
+                                }
+                            } else {
+                                val reply = aiChatClient.reply(_messages.value)
+                                _assistantState.value = AssistantState.Idle
+                                addMessage(MessageSender.ASSISTANT, reply, actionBadge = "AI")
+                                speakResponse(reply)
+                            }
                         } catch (error: Exception) {
-                            val responseText = "I couldn't reach the AI service. Check your connection and AI setup. ${error.message.orEmpty()}"
+                            val responseText = "I couldn't understand that as a supported command or reach the AI service. ${error.message.orEmpty()}"
                             _assistantState.value = AssistantState.Idle
                             addMessage(MessageSender.ASSISTANT, responseText, actionBadge = "AI unavailable")
                             speakResponse(responseText)
