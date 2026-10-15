@@ -158,6 +158,12 @@ private fun getActionDetails(action: AssistantAction): Quadruple<ImageVector, St
             action.displayName,
             AssistantPrimary
         )
+        is AssistantAction.LockDevice -> Quadruple(
+            Icons.Default.Security,
+            "Lock Device",
+            "Lock the phone after device-admin permission is enabled",
+            WarningAmber
+        )
         is AssistantAction.RequireConfirmation -> Quadruple(
             Icons.Default.Warning,
             "Confirmation Required",
