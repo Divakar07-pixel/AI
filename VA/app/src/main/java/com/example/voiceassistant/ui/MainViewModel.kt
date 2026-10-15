@@ -232,6 +232,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             is AssistantAction.SetTimer -> "Timer"
             is AssistantAction.SetAlarm -> "Alarm"
             is AssistantAction.OpenApp -> "App Launch"
+            is AssistantAction.SearchYouTube -> "YouTube Search"
             is AssistantAction.OpenSetting -> "Settings"
             else -> null
         }
