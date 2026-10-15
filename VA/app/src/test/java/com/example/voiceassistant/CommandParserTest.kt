@@ -136,6 +136,13 @@ class CommandParserTest {
     }
 
     @Test
+    fun standaloneWhatsAppCommandOpensWhatsApp() {
+        val action = parser.parseCommand("whatsapp")
+        assertTrue("Expected OpenApp, got: $action", action is AssistantAction.OpenApp)
+        assertEquals("WhatsApp", (action as AssistantAction.OpenApp).appName)
+    }
+
+    @Test
     fun parsesYouTubeSearchWithOpenAndSearchPhrase() {
         val action = parser.parseCommand("open youtube and search vj sidhu vlogs")
         assertTrue("Expected SearchYouTube, got: $action", action is AssistantAction.SearchYouTube)
