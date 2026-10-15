@@ -1,12 +1,15 @@
 package com.example.voiceassistant.data
 
+import android.Manifest
 import android.app.admin.DevicePolicyManager
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.AlarmClock
+import android.provider.ContactsContract
 import android.provider.MediaStore
 import android.provider.Settings
 import com.example.voiceassistant.domain.model.AssistantAction
@@ -76,21 +79,31 @@ class ActionExecutor(private val context: Context) {
                 is SensitiveAction.SendMessage -> {
                     val recipient = sensitiveAction.recipient.trim()
                     if (sensitiveAction.channel == MessageChannel.WHATSAPP) {
-                        // Contact names cannot be resolved safely by the share intent. The user
-                        // chooses the exact WhatsApp recipient and taps Send manually.
-                        val intent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, sensitiveAction.messageText)
+                        // Resolve the spoken contact to a phone number, then open that exact
+                        // WhatsApp chat with the message pre-filled. WhatsApp still requires
+                        // the user to tap Send; the app never sends silently.
+                        val phoneNumber = resolveWhatsAppNumber(recipient)
+                            ?: return ExecutionResult.Failure(
+                                "I couldn't identify one WhatsApp number for '$recipient'. Grant Contacts permission, use a unique contact name, or speak the full international phone number."
+                            )
+                        val digits = phoneNumber.filter(Char::isDigit)
+                        if (digits.length < 7) {
+                            return ExecutionResult.Failure("The number for '$recipient' doesn't look valid for WhatsApp.")
+                        }
+                        val chatUri = Uri.parse(
+                            "https://wa.me/$digits?text=${Uri.encode(sensitiveAction.messageText)}"
+                        )
+                        val intent = Intent(Intent.ACTION_VIEW, chatUri).apply {
                             setPackage("com.whatsapp")
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
                         if (intent.resolveActivity(context.packageManager) != null) {
                             context.startActivity(intent)
                             ExecutionResult.Success(
-                                "WhatsApp opened with your message. Select '$recipient', review the text, and tap Send in WhatsApp."
+                                "Opened the WhatsApp chat for '$recipient' with your message filled in. Review it and tap Send in WhatsApp."
                             )
                         } else {
-                            ExecutionResult.Failure("WhatsApp is not installed or cannot share a message on this device.")
+                            ExecutionResult.Failure("WhatsApp is not installed or could not open this chat.")
                         }
                     } else {
                         // Open SMS pre-populated; the user must review and tap Send.
@@ -152,6 +165,50 @@ class ActionExecutor(private val context: Context) {
         } catch (e: Exception) {
             ExecutionResult.Failure("Could not complete action: ${e.localizedMessage}")
         }
+    }
+
+    /**
+     * Resolves a spoken contact name to one phone number. Ambiguous names are rejected
+     * instead of opening or messaging the wrong person.
+     */
+    private fun resolveWhatsAppNumber(recipient: String): String? {
+        if (recipient.matches(Regex("^\\+?[0-9() .-]{7,25}$"))) {
+            return recipient
+        }
+        if (context.checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            return null
+        }
+
+        val projection = arrayOf(
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+            ContactsContract.CommonDataKinds.Phone.NUMBER
+        )
+        val matches = mutableListOf<Pair<String, String>>()
+        context.contentResolver.query(
+            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            projection,
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+            val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+            if (nameIndex >= 0 && numberIndex >= 0) {
+                while (cursor.moveToNext()) {
+                    val name = cursor.getString(nameIndex)?.trim().orEmpty()
+                    val number = cursor.getString(numberIndex)?.trim().orEmpty()
+                    if (name.isNotBlank() && number.isNotBlank()) matches.add(name to number)
+                }
+            }
+        }
+
+        val exact = matches.filter { it.first.equals(recipient, ignoreCase = true) }
+            .distinctBy { it.second.filter(Char::isDigit) }
+        val candidates = if (exact.isNotEmpty()) exact else {
+            matches.filter { it.first.contains(recipient, ignoreCase = true) }
+                .distinctBy { it.second.filter(Char::isDigit) }
+        }
+        return candidates.singleOrNull()?.second
     }
 
     private fun executeSetTimer(seconds: Int, label: String): ExecutionResult {
