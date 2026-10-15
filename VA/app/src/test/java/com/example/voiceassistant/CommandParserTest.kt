@@ -264,4 +264,38 @@ class CommandParserTest {
         val unknown2 = parser.parseCommand("")
         assertTrue(unknown2 is AssistantAction.Unknown)
     }
+
+    @Test
+    fun testTimerRejectsZeroAndOutOfRangeDurations() {
+        assertTrue(parser.parseCommand("set a timer for 0 seconds") is AssistantAction.Unknown)
+        assertTrue(parser.parseCommand("set timer for 999999999 hours") is AssistantAction.Unknown)
+    }
+
+    @Test
+    fun testTimerRejectsUnrelatedTrailingText() {
+        assertTrue(parser.parseCommand("set a timer for 10 minutes and open camera") is AssistantAction.Unknown)
+    }
+
+    @Test
+    fun testAlarmRejectsInvalidTimeAndTrailingText() {
+        assertTrue(parser.parseCommand("set an alarm for 25:90") is AssistantAction.Unknown)
+        assertTrue(parser.parseCommand("set alarm for 7 am and call Mom") is AssistantAction.Unknown)
+    }
+
+    @Test
+    fun testTimeQueryRequiresSupportedWholePhrase() {
+        assertTrue(parser.parseCommand("what time should I leave") is AssistantAction.Unknown)
+    }
+
+    @Test
+    fun testConfirmationRejectsMixedOrAmbiguousPhrases() {
+        assertEquals(ConfirmationDecision.UNCLEAR, parser.parseConfirmationResponse("yes, but no"))
+        assertEquals(ConfirmationDecision.UNCLEAR, parser.parseConfirmationResponse("yes please cancel"))
+    }
+
+    @Test
+    fun testUnrelatedUseOfPinDoesNotTriggerSecurityConfirmation() {
+        assertTrue(parser.parseCommand("pin this message") is AssistantAction.Unknown)
+    }
+
 }
