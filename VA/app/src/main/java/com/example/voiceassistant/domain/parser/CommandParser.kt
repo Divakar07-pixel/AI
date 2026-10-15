@@ -162,7 +162,7 @@ class CommandParser(
         // Handle combined WhatsApp + message requests before the generic app-launch parser.
         // Speech recognition may render WhatsApp as "what's app" or "whats app".
         Regex(
-            "^(?:(?:open|launch|start)\\s+)?(?:app\\s+)?(?:whats\\s*app|what'?s\\s*app|whatsapp)\\s+(?:and\\s+)?send\\s+(?:a\\s+)?(?:message|text)\\s+to\\s+(.+?)(?:\\s*,\\s*|\\s+)(?:saying|that|content\\s+is|message\\s+is)\\s+(.+)$",
+            "^(?:(?:open|launch|start)\\s+)?(?:app\\s+)?(?:whats\\s*app|what'?s\\s*app|whatsapp)\\s+(?:and\\s+)?(?:send|sent)\\s+(?:a\\s+)?(?:message|text)\\s+to\\s+(.+?)(?:\\s*,\\s*|\\s+)(?:saying|that|content\\s+is|message\\s+is)\\s+(.+)$",
             RegexOption.IGNORE_CASE
         ).matchEntire(original)?.let {
             return "send whatsapp message to ${it.groupValues[1].trim().trimEnd(',', ';', ':').trim()} saying ${it.groupValues[2].trim()}"
@@ -191,7 +191,7 @@ class CommandParser(
     private fun checkSensitiveAction(text: String): AssistantAction? {
         val normalized = text.trim()
         val whatsappPattern = Pattern.compile(
-            "^(?:send\\s+)?(?:a\\s+)?whatsapp\\s+(?:message|text)\\s+to\\s+(.+?)\\s+(?:saying|that|content\\s+is|message\\s+is)\\s+(.+)$",
+            "^(?:(?:send|sent)\\s+)?(?:a\\s+)?whatsapp\\s+(?:message|text)\\s+to\\s+(.+?)\\s+(?:saying|that|content\\s+is|message\\s+is)\\s+(.+)$",
             Pattern.CASE_INSENSITIVE
         )
         val whatsappMatcher = whatsappPattern.matcher(normalized)
