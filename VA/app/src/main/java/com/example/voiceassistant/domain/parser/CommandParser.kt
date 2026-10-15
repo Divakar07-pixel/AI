@@ -69,6 +69,16 @@ class CommandParser(
             return AssistantAction.Unknown(rawText, "No speech recognized.")
         }
 
+        // Search requests are navigational and do not need a confirmation prompt.
+        val youtubeSearch = Regex(
+            "^(?:(?:open|launch|start)\\s+youtube\\s+and\\s+)?(?:search(?:\\s+youtube)?(?:\\s+for)?|youtube\\s+search(?:\\s+for)?)\\s+(.+)$",
+            RegexOption.IGNORE_CASE
+        ).matchEntire(normalized)
+        if (youtubeSearch != null) {
+            val query = youtubeSearch.groupValues[1].trim()
+            if (query.isNotBlank()) return AssistantAction.SearchYouTube(query)
+        }
+
         // 1. Check sensitive actions first (requiring confirmation)
         checkSensitiveAction(normalized)?.let { return it }
 
