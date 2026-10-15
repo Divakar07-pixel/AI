@@ -125,6 +125,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun submitTextInput() {
         val query = _textInput.value.trim()
         if (query.isNotBlank()) {
+            pauseWakeWordDetectionForCommand()
             _textInput.value = ""
             handleUserInput(query)
         }
@@ -295,6 +296,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (!preserveCurrentState && _assistantState.value is AssistantState.Speaking) {
                     _assistantState.value = AssistantState.Idle
                 }
+                if (!preserveCurrentState) resumeWakeWordDetectionIfEnabled()
             }
         )
     }
