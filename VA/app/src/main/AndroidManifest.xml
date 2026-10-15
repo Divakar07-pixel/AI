@@ -73,11 +73,10 @@
             </intent-filter>
         </activity>
 
-        <!-- User-initiated foreground service for background wake-word listening with microphone type -->
+        <!-- Foreground-service lifecycle demo; no microphone capture or wake-word detection. -->
         <service
             android:name=".service.VoiceAssistantForegroundService"
-            android:exported="false"
-             />
+            android:exported="false" />
 
         <!-- Receiver to handle notification 'Stop' action -->
         <receiver
