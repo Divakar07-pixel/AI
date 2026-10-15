@@ -133,6 +133,8 @@ class CommandParser(
             "bluetooth off pannu" to "open bluetooth settings",
             "bluetooth settings open pannu" to "open bluetooth settings",
             "settings open pannu" to "open settings",
+            "whatsapp" to "open whatsapp",
+            "whats app" to "open whatsapp",
             "camera open pannu" to "open camera",
             "mobile lock pannu" to "lock my phone",
             "phone lock pannu" to "lock my phone",
