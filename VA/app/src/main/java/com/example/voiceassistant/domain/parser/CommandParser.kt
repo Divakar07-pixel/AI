@@ -337,23 +337,81 @@ class CommandParser(
     }
 
     private fun checkAlarm(text: String): AssistantAction? {
-        val pattern = Regex(
-            "^(?:set\\s+(?:an?\\s+)?alarm(?:\\s+for)?|alarm(?:\\s+for)?|wake\\s+me\\s+up\\s+at)\\s+(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?$",
-            RegexOption.IGNORE_CASE
-        )
-        val match = pattern.matchEntire(text.trim()) ?: return null
-        var hour = match.groupValues[1].toIntOrNull() ?: return null
-        val minute = match.groupValues[2].ifBlank { "0" }.toIntOrNull() ?: return null
-        val amPm = match.groupValues[3].lowercase(Locale.ROOT)
+        // Flexible local parsing for common spoken forms:
+        // "set alarm on 5 40 tomorrow morning", "alarm tomorrow at 5:40",
+        // "wake me up at 5:40 am", "set an alarm for 17:40".
+        var phrase = text.trim().lowercase(Locale.ROOT)
+            .replace(Regex("[,?!]"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+        if (!Regex(".*\\b(alarm|wake me up)\\b.*").containsMatchIn(phrase)) return null
+
+        var dayOffset = when {
+            Regex("\\bday after tomorrow\\b").containsMatchIn(phrase) -> 2
+            Regex("\\btomorrow\\b").containsMatchIn(phrase) -> 1
+            else -> 0
+        }
+        phrase = phrase
+            .replace(Regex("\\bday after tomorrow\\b"), " ")
+            .replace(Regex("\\btomorrow\\b"), " ")
+            .replace(Regex("\\btoday\\b"), " ")
+            .replace(Regex("\\b(in the )?morning\\b"), " am ")
+            .replace(Regex("\\b(at )?night\\b"), " pm ")
+            .replace(Regex("\\b(in the )?evening\\b"), " pm ")
+            .replace(Regex("\\b(in the )?afternoon\\b"), " pm ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+
+        phrase = phrase
+            .replaceFirst(Regex("^(?:please )?(?:set )?(?:an? )?alarm(?: clock)?\\s*"), "")
+            .replaceFirst(Regex("^wake me up\\s*"), "")
+            .replaceFirst(Regex("^(?:for|on|at)\\s+"), "")
+            .replaceFirst(Regex("\\bat\\s+"), "")
+            .replaceFirst(Regex("\\bfor\\s+"), "")
+            .trim()
+
+        val timeMatch = Regex("^(.*?)(\\d{1,2})(?::|\\s+)(\\d{2})(?:\\s*(am|pm))?$", RegexOption.IGNORE_CASE)
+            .matchEntire(phrase)
+        val hourOnlyMatch = if (timeMatch == null) {
+            Regex("^(.*?)(\\d{1,2})\\s*(am|pm)?$", RegexOption.IGNORE_CASE).matchEntire(phrase)
+        } else null
+        var hour: Int
+        val minute: Int
+        var amPm: String
+        when {
+            timeMatch != null -> {
+                hour = timeMatch.groupValues[2].toIntOrNull() ?: return null
+                minute = timeMatch.groupValues[3].toIntOrNull() ?: return null
+                amPm = timeMatch.groupValues[4].lowercase(Locale.ROOT)
+                val prefix = timeMatch.groupValues[1]
+                if (prefix.isNotBlank() && !prefix.matches(Regex("^[a-z ]*$"))) return null
+            }
+            hourOnlyMatch != null -> {
+                hour = hourOnlyMatch.groupValues[2].toIntOrNull() ?: return null
+                minute = 0
+                amPm = hourOnlyMatch.groupValues[3].lowercase(Locale.ROOT)
+                val prefix = hourOnlyMatch.groupValues[1].trim()
+                if (prefix.isNotBlank()) return null
+            }
+            else -> return null
+        }
+
         if (minute !in 0..59) return AssistantAction.Unknown(text, "Alarm minutes must be between 00 and 59.")
         if (amPm.isNotEmpty()) {
             if (hour !in 1..12) return AssistantAction.Unknown(text, "Use an hour from 1 to 12 with AM or PM.")
             if (amPm == "pm" && hour < 12) hour += 12
             if (amPm == "am" && hour == 12) hour = 0
-        } else if (hour !in 0..23) {
-            return AssistantAction.Unknown(text, "Use a 24-hour time or include AM/PM.")
+        } else {
+            if (hour !in 0..23) return AssistantAction.Unknown(text, "Use a 24-hour time or include morning/afternoon.")
+            // "morning" is normalized to AM; spoken "5 40 tomorrow morning" gets 05:40.
+            if (Regex("\\b(am)\\b").containsMatchIn(phrase) && hour == 12) hour = 0
         }
-        return AssistantAction.SetAlarm(hour = hour, minute = minute, label = "Assistant Alarm")
+        return AssistantAction.SetAlarm(
+            hour = hour,
+            minute = minute,
+            label = "Assistant Alarm",
+            dayOffset = dayOffset
+        )
     }
 
     private fun checkSettings(text: String): AssistantAction? {
