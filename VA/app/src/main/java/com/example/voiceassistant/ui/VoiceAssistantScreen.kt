@@ -263,10 +263,6 @@ fun VoiceAssistantScreen(
                             containerColor = Color(0xFF17243A),
                             labelColor = Color(0xFFD8E7FF)
                         ),
-                        border = androidx.compose.material3.AssistChipDefaults.assistChipBorder(
-                            enabled = true,
-                            borderColor = Color(0xFF2B3B57)
-                        )
                     )
                 }
             }
