@@ -28,7 +28,7 @@ import kotlinx.coroutines.launch
  *
  * Compliance & Android restrictions:
  * - Displays a persistent notification and exposes a stop action.
- * - Does not use the microphone; the foreground-service type is retained for the planned detector.
+ * - Does not request the microphone foreground-service type or capture audio.
  */
 class VoiceAssistantForegroundService : Service() {
 
@@ -44,14 +44,13 @@ class VoiceAssistantForegroundService : Service() {
     }
 
     private val serviceScope = CoroutineScope(Dispatchers.Default + Job())
-    private var isMonitoring = false
+    private var isDemoActive = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -62,7 +61,7 @@ class VoiceAssistantForegroundService : Service() {
             }
             else -> {
                 startForegroundWithNotification()
-                startWakeWordMonitoring()
+                startLifecycleDemo()
             }
         }
         return START_STICKY
@@ -126,18 +125,18 @@ class VoiceAssistantForegroundService : Service() {
         }
     }
 
-    private fun startWakeWordMonitoring() {
-        if (isMonitoring) return
-        isMonitoring = true
+    private fun startLifecycleDemo() {
+        if (isDemoActive) return
+        isDemoActive = true
 
         serviceScope.launch {
             // Lifecycle demo only; no microphone capture or wake-word detection occurs.
-            while (isActive && isMonitoring) delay(60_000)
+            while (isActive && isDemoActive) delay(60_000)
         }
     }
 
     private fun stopForegroundService() {
-        isMonitoring = false
+        isDemoActive = false
         _isServiceRunning.value = false
         serviceScope.cancel()
         stopForeground(STOP_FOREGROUND_REMOVE)
