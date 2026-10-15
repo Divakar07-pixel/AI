@@ -31,6 +31,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "SUPABASE_URL", localPropertyAsBuildConfig("SUPABASE_URL"))
         buildConfigField("String", "SUPABASE_ANON_KEY", localPropertyAsBuildConfig("SUPABASE_ANON_KEY"))
+        buildConfigField("String", "PICOVOICE_ACCESS_KEY", localPropertyAsBuildConfig("PICOVOICE_ACCESS_KEY"))
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -67,6 +68,7 @@ android {
 }
 
 dependencies {
+    implementation("ai.picovoice:porcupine-android:4.0.2")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
