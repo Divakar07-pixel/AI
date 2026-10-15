@@ -50,7 +50,6 @@ class CommandParser(
     }
 
     /**
-     * Parses a spoken command    /**
      * Parses a spoken command into an [AssistantAction].
      */
     fun parseCommand(rawText: String): AssistantAction {
