@@ -136,6 +136,21 @@ class CommandParserTest {
     }
 
     @Test
+    fun openPhoneAndCallContactRequiresConfirmation() {
+        val action = parser.parseCommand("open phone and call Divakar")
+        assertTrue("Expected RequireConfirmation, got: $action", action is AssistantAction.RequireConfirmation)
+        val call = (action as AssistantAction.RequireConfirmation).action as SensitiveAction.MakePhoneCall
+        assertEquals("Divakar", call.contactOrNumber)
+    }
+
+    @Test
+    fun standalonePhoneCommandOpensPhoneApp() {
+        val action = parser.parseCommand("open phone")
+        assertTrue("Expected OpenApp, got: $action", action is AssistantAction.OpenApp)
+        assertEquals("Phone", (action as AssistantAction.OpenApp).appName)
+    }
+
+    @Test
     fun standaloneWhatsAppCommandOpensWhatsApp() {
         val action = parser.parseCommand("whatsapp")
         assertTrue("Expected OpenApp, got: $action", action is AssistantAction.OpenApp)
