@@ -72,7 +72,9 @@ private val Muted = Color(0xFF9AA9C4)
 fun VoiceAssistantScreen(
     viewModel: MainViewModel,
     hasRecordAudioPermission: Boolean,
+    hasContactsPermission: Boolean,
     onRequestPermission: () -> Unit,
+    onRequestContactsPermission: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -166,6 +168,28 @@ fun VoiceAssistantScreen(
                             modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
                         )
                         OutlinedButton(onClick = onRequestPermission) { Text("Grant") }
+                    }
+                }
+            }
+
+            AnimatedVisibility(visible = !hasContactsPermission) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF17243A)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = Cyan)
+                        Text(
+                            "Contacts permission lets me open the exact WhatsApp chat by name.",
+                            color = Color(0xFFD8E7FF),
+                            fontSize = 12.sp,
+                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                        )
+                        OutlinedButton(onClick = onRequestContactsPermission) { Text("Grant") }
                     }
                 }
             }
