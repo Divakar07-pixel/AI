@@ -10,7 +10,6 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
-import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.example.voiceassistant.MainActivity
@@ -30,12 +29,8 @@ import kotlinx.coroutines.launch
  * Foreground-service lifecycle demo. It does not capture audio or detect wake words.
  *
  * Compliance & Android restrictions:
- * - Uses foregroundServiceType="microphone" (mandatory for Android 14+ / API 34+).
- * - Displays a mandatory persistent notification so the user is always aware of mic usage.
- * - Provides an immediate "Stop" action directly in the notification shade.
- * - Acquires a partial wake lock to prevent immediate CPU sleep.
- * - Explains OS limitations: continuous listening while locked is subject to OEM battery savers,
- *   Android Doze mode, and background microphone silencing on newer Android versions.
+ * - Displays a persistent notification and exposes a stop action.
+ * - Does not use the microphone; the foreground-service type is retained for the planned detector.
  */
 class VoiceAssistantForegroundService : Service() {
 
@@ -45,14 +40,12 @@ class VoiceAssistantForegroundService : Service() {
 
         const val ACTION_START_SERVICE = "com.example.voiceassistant.action.START_SERVICE"
         const val ACTION_STOP_SERVICE = "com.example.voiceassistant.action.STOP_SERVICE"
-        const val ACTION_WAKE_WORD_TRIGGERED = "com.example.voiceassistant.action.WAKE_WORD_TRIGGERED"
 
         private val _isServiceRunning = MutableStateFlow(false)
         val isServiceRunning: StateFlow<Boolean> = _isServiceRunning.asStateFlow()
     }
 
     private val serviceScope = CoroutineScope(Dispatchers.Default + Job())
-    private var wakeLock: PowerManager.WakeLock? = null
     private var isMonitoring = false
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -153,24 +146,14 @@ class VoiceAssistantForegroundService : Service() {
         isMonitoring = true
 
         serviceScope.launch {
-            // Background monitoring loop
-            // Note: Standard Android devices may silence the microphone when the screen is locked
-            // to protect user privacy. We monitor responsibly without infinite spin-locks.
-            while (isActive && isMonitoring) {
-                delay(3000)
-                // In a production setup with on-device Porcupine or Vosk, audio buffers are piped here.
-                // If wake word is triggered, broadcast back to MainActivity:
-                // sendBroadcast(Intent(ACTION_WAKE_WORD_TRIGGERED))
-            }
+            // Lifecycle demo only; no microphone capture or wake-word detection occurs.
+            while (isActive && isMonitoring) delay(60_000)
         }
     }
 
     private fun stopForegroundService() {
         isMonitoring = false
         _isServiceRunning.value = false
-        if (wakeLock?.isHeld == true) {
-            wakeLock?.release()
-        }
         serviceScope.cancel()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
