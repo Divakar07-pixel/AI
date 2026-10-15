@@ -129,6 +129,15 @@ class CommandParser(
         )
         exactAliases[text]?.let { return it }
 
+        // Handle combined WhatsApp + message requests before the generic app-launch parser.
+        // Speech recognition may render WhatsApp as "what's app" or "whats app".
+        Regex(
+            "^(?:open\\s+)?(?:whats\\s*app|what'?s\\s*app|whatsapp)\\s+and\\s+send\\s+(?:a\\s+)?(?:message|text)\\s+to\\s+(.+?)\\s+(?:saying|that|content\\s+is|message\\s+is)\\s+(.+)$",
+            RegexOption.IGNORE_CASE
+        ).matchEntire(original)?.let {
+            return "send message to ${it.groupValues[1].trim()} saying ${it.groupValues[2].trim()}"
+        }
+
         Regex("^(.+?)\\s+ku\\s+(?:message|sms)\\s+anuppu\\s+(.+)$", RegexOption.IGNORE_CASE)
             .matchEntire(original)?.let {
                 return "text ${it.groupValues[1].trim()} saying ${it.groupValues[2].trim()}"
@@ -152,7 +161,7 @@ class CommandParser(
     private fun checkSensitiveAction(text: String): AssistantAction? {
         val normalized = text.trim()
         val msgPattern1 = Pattern.compile(
-            "^(?:send(?:\\s+a)?\\s+(?:message|text|sms)\\s+to)\\s+(.+?)\\s+(?:saying|that)\\s+(.+)$",
+            "^(?:send(?:\\s+a)?\\s+(?:message|text|sms)\\s+to)\\s+(.+?)\\s+(?:saying|that|content\\s+is|message\\s+is)\\s+(.+)$",
             Pattern.CASE_INSENSITIVE
         )
         val msgMatcher1 = msgPattern1.matcher(normalized)
@@ -329,6 +338,7 @@ class CommandParser(
         if (requestedApp.length > 80 || requestedApp.any { it.isISOControl() }) return null
 
         return when (requestedApp) {
+            "whatsapp", "whats app", "what's app" -> AssistantAction.OpenApp("WhatsApp", "com.whatsapp")
             "camera" -> AssistantAction.OpenApp("Camera", null)
             "youtube" -> AssistantAction.OpenApp("YouTube", "com.google.android.youtube")
             "chrome", "google chrome", "browser" -> AssistantAction.OpenApp("Chrome", "com.android.chrome")
