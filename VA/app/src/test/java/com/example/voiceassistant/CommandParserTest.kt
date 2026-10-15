@@ -231,6 +231,16 @@ class CommandParserTest {
     }
 
     @Test
+    fun combinedWhatsAppCommandAcceptsPastTenseSent() {
+        val action = parser.parseCommand("Open WhatsApp and sent a message to Divakar, content is hi")
+        assertTrue("Expected RequireConfirmation, got: $action", action is AssistantAction.RequireConfirmation)
+        val message = (action as AssistantAction.RequireConfirmation).action as SensitiveAction.SendMessage
+        assertEquals("Divakar", message.recipient)
+        assertEquals("hi", message.messageText)
+        assertEquals(MessageChannel.WHATSAPP, message.channel)
+    }
+
+    @Test
     fun whatsappCommandWithAppPrefixAndNoSpaceAfterCommaIsParsed() {
         val action = parser.parseCommand("app whatsapp send message to divakar,content is Hii")
         assertTrue("Expected RequireConfirmation, got: $action", action is AssistantAction.RequireConfirmation)
