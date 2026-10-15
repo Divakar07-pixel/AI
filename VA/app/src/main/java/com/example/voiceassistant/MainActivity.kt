@@ -25,12 +25,15 @@ class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
 
     private var hasRecordAudioPermission by mutableStateOf(false)
+    private var hasContactsPermission by mutableStateOf(false)
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val recordAudioGranted = permissions[Manifest.permission.RECORD_AUDIO] ?: false
         hasRecordAudioPermission = recordAudioGranted
+        hasContactsPermission = permissions[Manifest.permission.READ_CONTACTS]
+            ?: (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,7 +50,9 @@ class MainActivity : ComponentActivity() {
                     VoiceAssistantScreen(
                         viewModel = viewModel,
                         hasRecordAudioPermission = hasRecordAudioPermission,
-                        onRequestPermission = { requestRequiredPermissions() }
+                        hasContactsPermission = hasContactsPermission,
+                        onRequestPermission = { requestRequiredPermissions() },
+                        onRequestContactsPermission = { requestContactsPermission() }
                     )
                 }
             }
@@ -64,6 +69,14 @@ class MainActivity : ComponentActivity() {
             this,
             Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
+        hasContactsPermission = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.READ_CONTACTS
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun requestContactsPermission() {
+        permissionLauncher.launch(arrayOf(Manifest.permission.READ_CONTACTS))
     }
 
     private fun requestRequiredPermissions() {
