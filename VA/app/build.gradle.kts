@@ -3,6 +3,18 @@ plugins {
     alias(libs.plugins.kotlin.android)
 }
 
+val localProperties = java.util.Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.inputStream().use { localProperties.load(it) }
+}
+fun localPropertyAsBuildConfig(name: String): String {
+    val value = localProperties.getProperty(name, "")
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+    return "\"$value\""
+}
+
 android {
     namespace = "com.example.voiceassistant"
     compileSdk = 34
@@ -15,6 +27,8 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "SUPABASE_URL", localPropertyAsBuildConfig("SUPABASE_URL"))
+        buildConfigField("String", "SUPABASE_ANON_KEY", localPropertyAsBuildConfig("SUPABASE_ANON_KEY"))
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -38,6 +52,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
