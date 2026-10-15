@@ -385,6 +385,7 @@ class CommandParser(
 
         return when (requestedApp) {
             "whatsapp", "whats app", "what's app" -> AssistantAction.OpenApp("WhatsApp", "com.whatsapp")
+            "phone", "phone app", "dialer", "telephone" -> AssistantAction.OpenApp("Phone", "com.google.android.dialer")
             "camera" -> AssistantAction.OpenApp("Camera", null)
             "youtube" -> AssistantAction.OpenApp("YouTube", "com.google.android.youtube")
             "chrome", "google chrome", "browser" -> AssistantAction.OpenApp("Chrome", "com.android.chrome")
