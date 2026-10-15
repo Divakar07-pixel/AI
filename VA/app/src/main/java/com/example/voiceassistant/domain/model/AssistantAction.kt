@@ -78,6 +78,9 @@ sealed class AssistantAction {
         val displayName: String
     ) : AssistantAction()
 
+    // Search YouTube using the user's query, without requiring confirmation.
+    data class SearchYouTube(val query: String) : AssistantAction()
+
     // Locks the device only after the user has explicitly enabled the device-admin capability.
     object LockDevice : AssistantAction()
 
