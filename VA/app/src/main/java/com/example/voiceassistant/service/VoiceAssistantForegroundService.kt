@@ -86,6 +86,7 @@ class VoiceAssistantForegroundService : Service() {
     }
 
     private fun startWakeWordDetection() {
+        wakeWordDetected = false
         if (BuildConfig.PICOVOICE_ACCESS_KEY.isBlank()) {
             showSetupError("Setup needed: add PICOVOICE_ACCESS_KEY to VA/local.properties.")
             return
