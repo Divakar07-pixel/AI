@@ -91,8 +91,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 handleUserInput(finalResult)
             },
             onError = { errorMsg ->
-                _assistantState.value = AssistantState.Error(errorMsg)
-                speakResponse("Sorry, $errorMsg")
+                val preservingConfirmation = _assistantState.value is AssistantState.WaitingForConfirmation
+                if (!preservingConfirmation) _assistantState.value = AssistantState.Error(errorMsg)
+                speakResponse("Sorry, $errorMsg", preserveCurrentState = preservingConfirmation)
             }
         )
     }
@@ -185,6 +186,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun handleConfirmationVoiceInput(input: String) {
+        addMessage(MessageSender.USER, input)
         when (commandParser.parseConfirmationResponse(input)) {
             ConfirmationDecision.CONFIRMED -> {
                 confirmPendingAction()
@@ -194,7 +196,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             ConfirmationDecision.UNCLEAR -> {
                 val prompt = "I did not catch your confirmation. Please say 'confirm' or 'cancel', or use the screen buttons."
-                speakResponse(prompt)
+                speakResponse(prompt, preserveCurrentState = true)
             }
         }
     }
