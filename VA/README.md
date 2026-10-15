@@ -10,9 +10,9 @@ The **Voice Assistant** is built as a grounded, dependable prototype for your An
 
 ### Core Principles
 - **No Grand Claims**: The assistant does not claim to control every app or perform arbitrary actions. It strictly adheres to an explicit, safe allowlist.
-- **Push-to-Talk Primary**: Immediate, reliable voice control when you open the app.
+- **Push-to-Talk Primary**: Voice commands are supported when you open the app. Background wake-word detection is not implemented.
 - **Explicit Confirmation Gates**: Asks for confirmation before sending messages, placing calls, deleting data, making purchases, or changing security settings.
-- **Total Privacy**: Audio is **never recorded or stored**. In-memory audio buffers stream strictly to the native Android speech recognizer. No API keys are required or stored in the app.
+- **Privacy-aware design**: This app does not write microphone audio to files. Android's selected speech-recognition provider may process audio according to that provider's own policies. Optional AI chat sends text conversation history to the configured Supabase Edge Function.
 - **Zero Stealth Operations**: No arbitrary shell scripts, no accessibility service taps, and no permission bypasses.
 - **Emergency Stop / Cancel**: Visible controls to immediately halt speech recognition, silence spoken audio, or abort pending actions.
 
@@ -70,9 +70,9 @@ The requirement to support a user-enabled wake-word mode when the device is lock
    Always-on, battery-efficient hotword detection (such as *"Hey Google"*) relies on low-power hardware Digital Signal Processors (DSP) integrated into the device SoC. Third-party applications cannot access this hardware layer unless they are granted the privileged System Assistant role (`RoleManager.ROLE_ASSISTANT`) and OEM system image integration.
 
 ### Our Compliant Implementation:
-- **User-Started Foreground Service**: The app includes `VoiceAssistantForegroundService` configured with `android:foregroundServiceType="microphone"`.
-- **Persistent Notification**: When enabled, the OS displays an ongoing notification (*"Voice Assistant Active - Monitoring wake word"*).
-- **Clear Controls**: The user can stop the service instantly either via the in-app switch or by tapping the **Stop** action button directly in the notification shade.
+- **Foreground-Service Demo**: The app includes a foreground-service lifecycle demonstration, but it does not capture audio or detect a wake word.
+- **Persistent Notification**: When enabled, the OS displays an ongoing notification that explicitly says wake-word detection is not implemented.
+- **Clear Controls**: The user can stop the service through the in-app switch or notification action.
 - **Push-to-Talk Fallback**: Because OS battery savers and OEM task killers (e.g. Samsung OneUI, Xiaomi MIUI) will eventually suspend continuous background microphone streaming when locked, **push-to-talk in the app is maintained as the primary, reliable, zero-battery-drain interface**.
 
 ---
@@ -231,3 +231,51 @@ The project includes unit tests verifying:
 2. **Offline Local First**: The allowlist actions (time, date, app launching, timers, alarms, and settings) run entirely on-device using local Android Intents.
 3. **No Hidden Background Activity**: The app does not attempt to inspect screen contents, abuse accessibility services, simulate touch events, or execute arbitrary shell commands.
 4. **Third-Party Integrations**: Laptop or network companion integration is intentionally excluded from Version 1 to maintain a self-contained, auditable native Android codebase.
+
+
+## 7. Optional AI conversation setup
+
+General questions that are not recognized as device commands are routed to an AI chat endpoint. Device commands are still parsed and handled locally first; the AI response cannot execute device actions.
+
+The included implementation uses a Supabase Edge Function and OpenAI-compatible chat completion. **The provider API key is stored only as a Supabase secret, never in the Android app.**
+
+### Configure the Android app
+
+In `VA/local.properties` (this file is machine-local and must not be committed), add:
+
+```properties
+sdk.dir=C\\:\\Users\\YOUR_USER\\AppData\\Local\\Android\\Sdk
+SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+SUPABASE_ANON_KEY=YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY
+```
+
+Keep your existing `sdk.dir` value if it is already present; add only the two Supabase properties. The Supabase anon/publishable key is designed for client use with appropriate project security. **Do not add `OPENAI_API_KEY` to this file or to the APK.**
+
+### Configure Supabase
+
+1. Create or select a Supabase project.
+2. Enable anonymous sign-ins in **Authentication → Sign In / Providers**.
+3. From the repository root, install the Supabase CLI and link the project.
+4. Set the provider key as a server secret: `supabase secrets set OPENAI_API_KEY=your_provider_key`.
+5. Optionally set the model: `supabase secrets set OPENAI_MODEL=gpt-4o-mini`.
+6. Deploy the function: `supabase functions deploy assistant-chat`. Keep JWT verification enabled so the function requires a valid Supabase session.
+7. Review Supabase Auth rate limits and usage monitoring before sharing the app publicly. Anonymous users can consume AI quota, so do not treat the endpoint as abuse-proof.
+
+The Android client signs in anonymously and calls `/functions/v1/assistant-chat`. If these settings are absent, the app continues to support local commands and explains that AI setup is missing.
+
+### Local tests
+
+From PowerShell in `F:\\VS Code\\AI-main\\VA` (adjust to your clone path), run:
+
+```powershell
+.\\gradlew.bat testDebugUnitTest assembleDebug --no-daemon --stacktrace
+```
+
+The GitHub Actions workflow in `.github/workflows/android-ci.yml` also runs unit tests and assembles a debug APK for pushes and pull requests touching `VA/`.
+
+## 8. Known limitations
+
+- Background wake-word detection is not implemented; the foreground-service switch is a lifecycle demo only.
+- AI conversation requires a configured Supabase project, anonymous auth, deployed Edge Function, and a server-side provider key.
+- AI replies are text-only. They do not execute Android actions. Supported commands continue through the local parser and explicit confirmation flow.
+- Speech recognition behavior and app/intent availability depend on the Android device and its configured services.
