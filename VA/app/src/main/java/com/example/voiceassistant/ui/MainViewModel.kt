@@ -7,6 +7,7 @@ import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.voiceassistant.data.ActionExecutor
+import com.example.voiceassistant.data.AiChatClient
 import com.example.voiceassistant.data.SpeechRecognizerManager
 import com.example.voiceassistant.data.TextToSpeechManager
 import com.example.voiceassistant.domain.model.AssistantAction
@@ -27,6 +28,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val commandParser = CommandParser()
     private val actionExecutor = ActionExecutor(application.applicationContext)
+    private val aiChatClient = AiChatClient(application.applicationContext)
 
     private var speechRecognizerManager: SpeechRecognizerManager? = null
     private var textToSpeechManager: TextToSpeechManager? = null
@@ -145,14 +147,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     prompt = action.explanation
                 )
                 val voicePrompt = "${action.explanation}. Say 'confirm' to proceed or 'cancel' to abort."
-                speakResponse(voicePrompt)
+                speakResponse(voicePrompt, preserveCurrentState = true)
             }
 
             is AssistantAction.Unknown -> {
-                val responseText = "Sorry, I cannot do that. ${action.reason}"
-                _assistantState.value = AssistantState.Idle
-                addMessage(MessageSender.ASSISTANT, responseText, actionBadge = "Unsupported")
-                speakResponse(responseText)
+                if (aiChatClient.isConfigured) {
+                    viewModelScope.launch {
+                        _assistantState.value = AssistantState.Processing("Thinking…")
+                        try {
+                            val reply = aiChatClient.reply(_messages.value)
+                            _assistantState.value = AssistantState.Idle
+                            addMessage(MessageSender.ASSISTANT, reply, actionBadge = "AI")
+                            speakResponse(reply)
+                        } catch (error: Exception) {
+                            val responseText = "I couldn't reach the AI service. Check your connection and AI setup. ${error.message.orEmpty()}"
+                            _assistantState.value = AssistantState.Idle
+                            addMessage(MessageSender.ASSISTANT, responseText, actionBadge = "AI unavailable")
+                            speakResponse(responseText)
+                        }
+                    }
+                } else {
+                    val responseText = "AI chat isn't configured yet. ${action.reason} Add SUPABASE_URL and SUPABASE_ANON_KEY to VA/local.properties, deploy the assistant-chat function, and set OPENAI_API_KEY as a Supabase secret."
+                    _assistantState.value = AssistantState.Idle
+                    addMessage(MessageSender.ASSISTANT, responseText, actionBadge = "Setup required")
+                    speakResponse(responseText)
+                }
             }
 
             else -> {
@@ -164,7 +183,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun handleConfirmationVoiceInput(input: String, sensitiveAction: SensitiveAction) {
         when (commandParser.parseConfirmationResponse(input)) {
             ConfirmationDecision.CONFIRMED -> {
-                confirmPendingAction(sensitiveAction)
+                confirmPendingAction()
             }
             ConfirmationDecision.CANCELLED -> {
                 rejectPendingAction()
@@ -176,17 +195,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun confirmPendingAction(action: SensitiveAction? = null) {
-        val currentAction = action ?: (_assistantState.value as? AssistantState.WaitingForConfirmation)?.pendingAction
-        if (currentAction == null) return
-
+    /**
+     * Executes only the action currently displayed for confirmation.
+     * Moving out of WaitingForConfirmation before executing makes confirmation one-shot.
+     */
+    fun confirmPendingAction() {
+        val waiting = _assistantState.value as? AssistantState.WaitingForConfirmation ?: return
+        val pendingAction = waiting.pendingAction
         _assistantState.value = AssistantState.Processing("Executing confirmed action")
-        val result = actionExecutor.executeSensitiveAction(currentAction)
-
+        _plannedAction.value = null
+        val result = actionExecutor.executeSensitiveAction(pendingAction)
         handleExecutionResult(result, actionBadge = "Action Confirmed")
     }
 
     fun rejectPendingAction() {
+        if (_assistantState.value !is AssistantState.WaitingForConfirmation) return
         _plannedAction.value = null
         _assistantState.value = AssistantState.Idle
         val message = "Action cancelled."
@@ -229,22 +252,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun speakResponse(text: String) {
-        _assistantState.value = AssistantState.Speaking(text)
+    private fun speakResponse(text: String, preserveCurrentState: Boolean = false) {
+        val previousState = _assistantState.value
+        if (!preserveCurrentState) _assistantState.value = AssistantState.Speaking(text)
         textToSpeechManager?.speak(
             text = text,
-            onStart = {
-                // Keep speaking state
-            },
+            onStart = { },
             onDone = {
-                val current = _assistantState.value
-                if (current is AssistantState.Speaking) {
+                if (preserveCurrentState) {
+                    _assistantState.value = previousState
+                } else if (_assistantState.value is AssistantState.Speaking) {
                     _assistantState.value = AssistantState.Idle
                 }
             },
             onError = {
-                val current = _assistantState.value
-                if (current is AssistantState.Speaking) {
+                if (preserveCurrentState) {
+                    _assistantState.value = previousState
+                } else if (_assistantState.value is AssistantState.Speaking) {
                     _assistantState.value = AssistantState.Idle
                 }
             }
@@ -274,7 +298,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 context.startService(serviceIntent)
             }
         } else {
-            context.stopService(serviceIntent)
+            // Send the explicit stop action so the service releases its wake lock and notification.
+            context.startService(serviceIntent)
         }
     }
 
