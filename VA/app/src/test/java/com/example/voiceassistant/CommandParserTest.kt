@@ -1,6 +1,7 @@
 package com.example.voiceassistant
 
 import com.example.voiceassistant.domain.model.AssistantAction
+import com.example.voiceassistant.domain.model.MessageChannel
 import com.example.voiceassistant.domain.model.SensitiveAction
 import com.example.voiceassistant.domain.model.SettingType
 import com.example.voiceassistant.domain.parser.CommandParser
@@ -181,6 +182,16 @@ class CommandParserTest {
         val sendMsg = req.action as SensitiveAction.SendMessage
         assertEquals("John", sendMsg.recipient)
         assertEquals("Running late", sendMsg.messageText)
+    }
+
+    @Test
+    fun combinedWhatsAppMessageRequiresConfirmationAndPreservesText() {
+        val action = parser.parseCommand("Open WhatsApp and send message to Divakar, content is Hii")
+        assertTrue("Expected RequireConfirmation, got: $action", action is AssistantAction.RequireConfirmation)
+        val message = (action as AssistantAction.RequireConfirmation).action as SensitiveAction.SendMessage
+        assertEquals("Divakar", message.recipient)
+        assertEquals("Hii", message.messageText)
+        assertEquals(MessageChannel.WHATSAPP, message.channel)
     }
 
     @Test
