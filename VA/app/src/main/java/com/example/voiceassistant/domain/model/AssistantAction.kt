@@ -17,10 +17,13 @@ enum class SettingType {
  * Sensitive operations that require explicit user confirmation
  * before execution (voice "Confirm" or tapping the Confirm button).
  */
+enum class MessageChannel { SMS, WHATSAPP }
+
 sealed class SensitiveAction {
     data class SendMessage(
         val recipient: String,
-        val messageText: String
+        val messageText: String,
+        val channel: MessageChannel = MessageChannel.SMS
     ) : SensitiveAction()
 
     data class MakePhoneCall(
