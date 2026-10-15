@@ -15,7 +15,6 @@ import com.example.voiceassistant.domain.model.AssistantState
 import com.example.voiceassistant.domain.model.ChatMessage
 import com.example.voiceassistant.domain.model.ExecutionResult
 import com.example.voiceassistant.domain.model.MessageSender
-import com.example.voiceassistant.domain.model.SensitiveAction
 import com.example.voiceassistant.domain.parser.CommandParser
 import com.example.voiceassistant.domain.parser.ConfirmationDecision
 import com.example.voiceassistant.service.VoiceAssistantForegroundService
@@ -129,7 +128,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // Check if we are currently awaiting confirmation
         if (currentState is AssistantState.WaitingForConfirmation) {
-            handleConfirmationVoiceInput(input, currentState.pendingAction)
+            handleConfirmationVoiceInput(input)
             return
         }
 
@@ -180,7 +179,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun handleConfirmationVoiceInput(input: String, sensitiveAction: SensitiveAction) {
+    private fun handleConfirmationVoiceInput(input: String) {
         when (commandParser.parseConfirmationResponse(input)) {
             ConfirmationDecision.CONFIRMED -> {
                 confirmPendingAction()
@@ -253,22 +252,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun speakResponse(text: String, preserveCurrentState: Boolean = false) {
-        val previousState = _assistantState.value
         if (!preserveCurrentState) _assistantState.value = AssistantState.Speaking(text)
         textToSpeechManager?.speak(
             text = text,
             onStart = { },
             onDone = {
-                if (preserveCurrentState) {
-                    _assistantState.value = previousState
-                } else if (_assistantState.value is AssistantState.Speaking) {
+                // Never restore stale state after a user has confirmed or cancelled an action.
+                if (!preserveCurrentState && _assistantState.value is AssistantState.Speaking) {
                     _assistantState.value = AssistantState.Idle
                 }
             },
             onError = {
-                if (preserveCurrentState) {
-                    _assistantState.value = previousState
-                } else if (_assistantState.value is AssistantState.Speaking) {
+                if (!preserveCurrentState && _assistantState.value is AssistantState.Speaking) {
                     _assistantState.value = AssistantState.Idle
                 }
             }
