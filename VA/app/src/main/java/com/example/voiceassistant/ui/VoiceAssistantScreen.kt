@@ -40,6 +40,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -55,7 +57,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.voiceassistant.domain.model.AssistantState
 import com.example.voiceassistant.ui.components.ActionCard
-import com.example.voiceassistant.ui.components.BackgroundWakeWordCard
 import com.example.voiceassistant.ui.components.ChatTranscript
 import com.example.voiceassistant.ui.components.ConfirmationDialog
 import com.example.voiceassistant.ui.components.MicControls
@@ -317,15 +318,24 @@ fun VoiceAssistantScreen(
                 modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
             )
 
-            // The service remains optional and explicitly user-controlled.
-            BackgroundWakeWordCard(
-                isServiceRunning = isServiceRunning,
-                onToggleService = { enable ->
-                    if (enable && !hasRecordAudioPermission) onRequestPermission()
-                    else viewModel.toggleForegroundService(context, enable)
-                },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-            )
+            // Compact, explicit control for the experimental foreground-service demo.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Background service (experimental)", color = Color(0xFFD8E7FF), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Wake-word detection is not implemented", color = Muted, fontSize = 9.sp)
+                }
+                Switch(
+                    checked = isServiceRunning,
+                    onCheckedChange = { enable ->
+                        if (enable && !hasRecordAudioPermission) onRequestPermission()
+                        else viewModel.toggleForegroundService(context, enable)
+                    },
+                    colors = SwitchDefaults.colors(checkedTrackColor = Cyan)
+                )
+            }
         }
     }
 
