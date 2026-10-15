@@ -337,4 +337,20 @@ class CommandParserTest {
         assertEquals(ConfirmationDecision.CONFIRMED, parser.parseConfirmationResponse("seri"))
         assertEquals(ConfirmationDecision.CANCELLED, parser.parseConfirmationResponse("vendam"))
     }
+
+    @Test
+    fun tanglishMessageRequiresConfirmationAndPreservesBodyCase() {
+        val action = parser.parseCommand("Amma ku message anuppu Naan 5 mani-ku varuven")
+        assertTrue(action is AssistantAction.RequireConfirmation)
+        val message = (action as AssistantAction.RequireConfirmation).action as SensitiveAction.SendMessage
+        assertEquals("Amma", message.recipient)
+        assertEquals("Naan 5 mani-ku varuven", message.messageText)
+    }
+
+    @Test
+    fun tanglishWifiToggleRequestOpensSettingsInsteadOfBypassingAndroid() {
+        val action = parser.parseCommand("wifi on pannu")
+        assertTrue(action is AssistantAction.OpenSetting)
+        assertEquals(SettingType.WIFI, (action as AssistantAction.OpenSetting).settingType)
+    }
 }
