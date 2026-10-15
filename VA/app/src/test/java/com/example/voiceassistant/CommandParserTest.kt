@@ -298,4 +298,43 @@ class CommandParserTest {
         assertTrue(parser.parseCommand("pin this message") is AssistantAction.Unknown)
     }
 
+
+    @Test
+    fun tanglishTimeAndDateCommandsAreRecognized() {
+        assertTrue(parser.parseCommand("time enna") is AssistantAction.TellTime)
+        assertTrue(parser.parseCommand("ippo time enna") is AssistantAction.TellTime)
+        assertTrue(parser.parseCommand("innaiku date enna") is AssistantAction.TellDate)
+    }
+
+    @Test
+    fun tanglishAppAndCallCommandsAreNormalized() {
+        val app = parser.parseCommand("camera open pannu")
+        assertTrue(app is AssistantAction.OpenApp)
+        assertEquals("Camera", (app as AssistantAction.OpenApp).appName)
+
+        val call = parser.parseCommand("Amma ku call pannu")
+        assertTrue(call is AssistantAction.RequireConfirmation)
+        assertTrue((call as AssistantAction.RequireConfirmation).action is SensitiveAction.MakePhoneCall)
+        assertEquals("Amma", ((call.action) as SensitiveAction.MakePhoneCall).contactOrNumber)
+    }
+
+    @Test
+    fun arbitraryInstalledAppNamesCanBeRequested() {
+        val action = parser.parseCommand("open instagram")
+        assertTrue(action is AssistantAction.OpenApp)
+        assertEquals("Instagram", (action as AssistantAction.OpenApp).appName)
+    }
+
+    @Test
+    fun lockPhoneCommandUsesExplicitDeviceAdminPath() {
+        assertEquals(AssistantAction.LockDevice, parser.parseCommand("lock my phone"))
+        assertEquals(AssistantAction.LockDevice, parser.parseCommand("phone lock pannu"))
+    }
+
+    @Test
+    fun tanglishConfirmationWordsAreRecognized() {
+        assertEquals(ConfirmationDecision.CONFIRMED, parser.parseConfirmationResponse("aama"))
+        assertEquals(ConfirmationDecision.CONFIRMED, parser.parseConfirmationResponse("seri"))
+        assertEquals(ConfirmationDecision.CANCELLED, parser.parseConfirmationResponse("vendam"))
+    }
 }
