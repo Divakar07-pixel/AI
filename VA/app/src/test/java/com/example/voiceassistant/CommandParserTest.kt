@@ -97,6 +97,16 @@ class CommandParserTest {
     }
 
     @Test
+    fun parsesSpokenAlarmWithSeparatedHourAndMinuteTomorrowMorning() {
+        val action = parser.parseCommand("set alarm on 5 40 tomorrow morning")
+        assertTrue("Expected SetAlarm, got: $action", action is AssistantAction.SetAlarm)
+        val alarm = action as AssistantAction.SetAlarm
+        assertEquals(5, alarm.hour)
+        assertEquals(40, alarm.minute)
+        assertEquals(1, alarm.dayOffset)
+    }
+
+    @Test
     fun testParseAlarmEvening() {
         val action = parser.parseCommand("set alarm for 8:15 pm")
         assertTrue(action is AssistantAction.SetAlarm)
