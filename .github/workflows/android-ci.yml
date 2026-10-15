@@ -27,11 +27,12 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      # The repository's wrapper JAR is missing GradleWrapperMain, so use the
+      # official Gradle distribution directly until the wrapper is repaired.
+      - name: Install Gradle 8.7
+        run: |
+          curl --fail --location --silent --show-error https://services.gradle.org/distributions/gradle-8.7-bin.zip --output "$RUNNER_TEMP/gradle.zip"
+          unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
 
       - name: Run unit tests and assemble debug APK
-        working-directory: VA
-        run: |
-          chmod +x gradlew
-          ./gradlew testDebugUnitTest assembleDebug --no-daemon --stacktrace
+        run: "$RUNNER_TEMP/gradle-8.7/bin/gradle" -p VA testDebugUnitTest assembleDebug --no-daemon --stacktrace
