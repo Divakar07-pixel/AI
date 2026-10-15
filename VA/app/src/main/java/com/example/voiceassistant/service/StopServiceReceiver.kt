@@ -12,7 +12,6 @@ class StopServiceReceiver : BroadcastReceiver() {
         val stopIntent = Intent(context, VoiceAssistantForegroundService::class.java).apply {
             action = VoiceAssistantForegroundService.ACTION_STOP_SERVICE
         }
-        // Deliver the stop action to onStartCommand so the service can release its wake lock.
-        context.startService(stopIntent)
+        context.stopService(stopIntent)
     }
 }
