@@ -75,6 +75,9 @@ sealed class AssistantAction {
         val displayName: String
     ) : AssistantAction()
 
+    // Locks the device only after the user has explicitly enabled the device-admin capability.
+    object LockDevice : AssistantAction()
+
     // Sensitive action awaiting explicit user confirmation
     data class RequireConfirmation(
         val action: SensitiveAction,
