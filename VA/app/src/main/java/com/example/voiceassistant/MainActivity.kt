@@ -16,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import com.example.voiceassistant.service.VoiceAssistantForegroundService
 import com.example.voiceassistant.ui.MainViewModel
 import com.example.voiceassistant.ui.VoiceAssistantScreen
 import com.example.voiceassistant.ui.theme.VoiceAssistantTheme
@@ -55,6 +56,23 @@ class MainActivity : ComponentActivity() {
                         onRequestContactsPermission = { requestContactsPermission() }
                     )
                 }
+            }
+        }
+        handleWakeWordIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleWakeWordIntent(intent)
+    }
+
+    private fun handleWakeWordIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(VoiceAssistantForegroundService.EXTRA_WAKE_WORD_DETECTED, false) == true) {
+            intent.removeExtra(VoiceAssistantForegroundService.EXTRA_WAKE_WORD_DETECTED)
+            window.decorView.post {
+                if (hasRecordAudioPermission) viewModel.startListening()
+                else requestRequiredPermissions()
             }
         }
     }
