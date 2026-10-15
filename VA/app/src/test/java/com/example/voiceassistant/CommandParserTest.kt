@@ -135,6 +135,20 @@ class CommandParserTest {
         assertEquals("Google Maps", maps.appName)
     }
 
+    @Test
+    fun parsesYouTubeSearchWithOpenAndSearchPhrase() {
+        val action = parser.parseCommand("open youtube and search vj sidhu vlogs")
+        assertTrue("Expected SearchYouTube, got: $action", action is AssistantAction.SearchYouTube)
+        assertEquals("vj sidhu vlogs", (action as AssistantAction.SearchYouTube).query)
+    }
+
+    @Test
+    fun parsesSearchYouTubeForPhrase() {
+        val action = parser.parseCommand("search YouTube for cats")
+        assertTrue("Expected SearchYouTube, got: $action", action is AssistantAction.SearchYouTube)
+        assertEquals("cats", (action as AssistantAction.SearchYouTube).query)
+    }
+
     // ==========================================
     // 5. Settings Tests
     // ==========================================
