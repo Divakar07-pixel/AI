@@ -79,6 +79,20 @@ class CommandParser(
             if (query.isNotBlank()) return AssistantAction.SearchYouTube(query)
         }
 
+        // Convert combined phone-launch + call requests to the allowlisted call action.
+        Regex(
+            "^(?:(?:open|launch|start)\\s+)?(?:phone|dialer|telephone)\\s+(?:and\\s+)?(?:call|dial)\\s+(.+)$",
+            RegexOption.IGNORE_CASE
+        ).matchEntire(normalized)?.let {
+            return checkSensitiveAction("call ${it.groupValues[1].trim()}")!!
+        }
+        Regex(
+            "^(?:phone\\s+call|make\\s+a\\s+call\\s+to)\\s+(.+)$",
+            RegexOption.IGNORE_CASE
+        ).matchEntire(normalized)?.let {
+            return checkSensitiveAction("call ${it.groupValues[1].trim()}")!!
+        }
+
         // 1. Check sensitive actions first (requiring confirmation)
         checkSensitiveAction(normalized)?.let { return it }
 
@@ -135,6 +149,9 @@ class CommandParser(
             "settings open pannu" to "open settings",
             "whatsapp" to "open whatsapp",
             "whats app" to "open whatsapp",
+            "phone" to "open phone",
+            "phone app" to "open phone",
+            "dialer" to "open phone",
             "camera open pannu" to "open camera",
             "mobile lock pannu" to "lock my phone",
             "phone lock pannu" to "lock my phone",
