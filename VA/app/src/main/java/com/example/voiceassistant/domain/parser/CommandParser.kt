@@ -53,7 +53,7 @@ class CommandParser(
      * Parses a spoken command into an [AssistantAction].
      */
     fun parseCommand(rawText: String): AssistantAction {
-        val normalized = rawText.trim()
+        val normalized = normalizeTanglish(rawText).trim()
             .replace(Regex("\\s+"), " ")
         val normalizedLowercase = normalized.lowercase(Locale.ROOT)
 
@@ -63,6 +63,11 @@ class CommandParser(
 
         // 1. Check sensitive actions first (requiring confirmation)
         checkSensitiveAction(normalized)?.let { return it }
+
+        // Locking is available only through Android's user-approved device-admin API.
+        if (normalizedLowercase in setOf("lock phone", "lock my phone", "lock mobile", "lock my mobile")) {
+            return AssistantAction.LockDevice
+        }
 
         // 2. Time & Date
         checkTimeOrDate(normalizedLowercase)?.let { return it }
@@ -84,6 +89,47 @@ class CommandParser(
             rawCommand = rawText,
             reason = "Command not recognized or not permitted in the allowlist."
         )
+    }
+
+    /**
+     * Normalizes common Tamil-English (Tanglish) commands locally. Device actions
+     * remain allowlisted and are never delegated to the AI model.
+     */
+    private fun normalizeTanglish(input: String): String {
+        val text = input.trim().lowercase(Locale.ROOT)
+            .replace(Regex("[.,?!]"), "")
+            .replace(Regex("\\s+"), " ")
+
+        val exactAliases = mapOf(
+            "time enna" to "what time is it",
+            "ippo time enna" to "what time is it",
+            "mani enna" to "what time is it",
+            "innaiku date enna" to "what is today's date",
+            "indru date enna" to "what is today's date",
+            "wifi settings open pannu" to "open wifi settings",
+            "wifi settings thira" to "open wifi settings",
+            "bluetooth settings open pannu" to "open bluetooth settings",
+            "settings open pannu" to "open settings",
+            "camera open pannu" to "open camera",
+            "mobile lock pannu" to "lock my phone",
+            "phone lock pannu" to "lock my phone",
+            "en phone lock pannu" to "lock my phone"
+        )
+        exactAliases[text]?.let { return it }
+
+        Regex("^(.+?)\\s+(?:ku|kitta)\\s+call\\s+(?:pannu|panunga)$")
+            .matchEntire(text)?.let { return "call \${it.groupValues[1].trim()}" }
+
+        Regex("^(.+?)\\s+(?:open\\s+pannu|open\\s+panunga|thira|thirakku)$")
+            .matchEntire(text)?.let { return "open \${it.groupValues[1].trim()}" }
+
+        Regex("^(.+?)\\s+(?:launch|start)\\s+pannu$")
+            .matchEntire(text)?.let { return "open \${it.groupValues[1].trim()}" }
+
+        Regex("^(?:timer|oru timer)\\s+(?:for\\s+)?(.+?)\\s+(?:set\\s+pannu|set\\s+panunga)$")
+            .matchEntire(text)?.let { return "set a timer for \${it.groupValues[1].trim()}" }
+
+        return text
     }
 
     private fun checkSensitiveAction(text: String): AssistantAction? {
@@ -263,6 +309,7 @@ class CommandParser(
         val requestedApp = text.removePrefix(matchedPrefix).trim()
 
         if (requestedApp.isBlank()) return null
+        if (requestedApp.length > 80 || requestedApp.any { it.isISOControl() }) return null
 
         return when (requestedApp) {
             "camera" -> AssistantAction.OpenApp("Camera", null)
