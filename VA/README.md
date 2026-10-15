@@ -255,11 +255,12 @@ Keep your existing `sdk.dir` value if it is already present; add only the two Su
 
 1. Create or select a Supabase project.
 2. Enable anonymous sign-ins in **Authentication → Sign In / Providers**.
-3. From the repository root, install the Supabase CLI and link the project.
-4. Set the provider key as a server secret: `supabase secrets set OPENAI_API_KEY=your_provider_key`.
-5. Optionally set the model: `supabase secrets set OPENAI_MODEL=gpt-4o-mini`.
-6. Deploy the function: `supabase functions deploy assistant-chat`. Keep JWT verification enabled so the function requires a valid Supabase session.
-7. Review Supabase Auth rate limits and usage monitoring before sharing the app publicly. Anonymous users can consume AI quota, so do not treat the endpoint as abuse-proof.
+3. Open a terminal in the `VA` folder (`cd VA`), install the Supabase CLI, and run `supabase init` if this folder does not already contain `supabase/config.toml`.
+4. Link the project: `supabase link --project-ref YOUR_PROJECT_REF`.
+5. Set the provider key as a server secret: `supabase secrets set OPENAI_API_KEY=your_provider_key`.
+6. Optionally set the model: `supabase secrets set OPENAI_MODEL=gpt-4o-mini`.
+7. Deploy the function from `VA`: `supabase functions deploy assistant-chat`. Keep JWT verification enabled so the function requires a valid Supabase session.
+8. Review Supabase Auth rate limits and usage monitoring before sharing the app publicly. Anonymous users can consume AI quota, so do not treat the endpoint as abuse-proof.
 
 The Android client signs in anonymously and calls `/functions/v1/assistant-chat`. If these settings are absent, the app continues to support local commands and explains that AI setup is missing.
 
