@@ -65,14 +65,18 @@ class ActionExecutor(private val context: Context) {
             when (sensitiveAction) {
                 is SensitiveAction.SendMessage -> {
                     // Open SMS app pre-populated so the user can verify before final tap
-                    val uri = Uri.parse("smsto:${Uri.encode(sensitiveAction.recipient)}")
+                    val recipient = sensitiveAction.recipient.trim()
+                    val isPhoneNumber = recipient.matches(Regex("^\\+?[0-9() .-]{5,20}$"))
+                    val uri = if (isPhoneNumber) Uri.parse("smsto:${Uri.encode(recipient)}") else Uri.parse("smsto:")
                     val intent = Intent(Intent.ACTION_SENDTO, uri).apply {
                         putExtra("sms_body", sensitiveAction.messageText)
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     if (intent.resolveActivity(context.packageManager) != null) {
                         context.startActivity(intent)
-                        ExecutionResult.Success("Opening messaging app to send: \"${sensitiveAction.messageText}\"")
+                        val nextStep = if (isPhoneNumber) "Review the message and tap Send in your messaging app."
+                            else "Choose the contact '${recipient}', review the message, then tap Send."
+                        ExecutionResult.Success("Messaging app opened. $nextStep")
                     } else {
                         ExecutionResult.Failure("No messaging application available on this device.")
                     }
@@ -80,13 +84,17 @@ class ActionExecutor(private val context: Context) {
 
                 is SensitiveAction.MakePhoneCall -> {
                     // Open dialer safely with contact/number pre-populated
-                    val dialUri = Uri.parse("tel:${Uri.encode(sensitiveAction.contactOrNumber)}")
+                    val target = sensitiveAction.contactOrNumber.trim()
+                    val isPhoneNumber = target.matches(Regex("^\\+?[0-9*#() .-]{3,25}$"))
+                    val dialUri = if (isPhoneNumber) Uri.parse("tel:${Uri.encode(target)}") else Uri.parse("tel:")
                     val dialIntent = Intent(Intent.ACTION_DIAL, dialUri).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     if (dialIntent.resolveActivity(context.packageManager) != null) {
                         context.startActivity(dialIntent)
-                        ExecutionResult.Success("Dialer opened for '${sensitiveAction.contactOrNumber}'.")
+                        val nextStep = if (isPhoneNumber) "Review the number and tap Call if correct."
+                            else "Find '${target}' in Contacts and tap Call."
+                        ExecutionResult.Success("Dialer opened. $nextStep")
                     } else {
                         ExecutionResult.Failure("No dialer application found.")
                     }
@@ -127,7 +135,7 @@ class ActionExecutor(private val context: Context) {
 
         return if (intent.resolveActivity(context.packageManager) != null) {
             context.startActivity(intent)
-            ExecutionResult.Success("Timer set for ${formatDuration(seconds)}.")
+            ExecutionResult.Success("Clock app opened with a ${formatDuration(seconds)} timer request. Confirm it in the Clock app.")
         } else {
             ExecutionResult.Failure("No clock or timer app available to set timer.")
         }
@@ -145,7 +153,7 @@ class ActionExecutor(private val context: Context) {
         return if (intent.resolveActivity(context.packageManager) != null) {
             context.startActivity(intent)
             val timeString = String.format("%02d:%02d", hour, minute)
-            ExecutionResult.Success("Alarm set for $timeString.")
+            ExecutionResult.Success("Clock app opened with an alarm request for $timeString. Confirm it in the Clock app.")
         } else {
             ExecutionResult.Failure("No clock app available to set alarm.")
         }
