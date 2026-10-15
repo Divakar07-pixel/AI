@@ -116,6 +116,10 @@ class CommandParser(
             "indru date enna" to "what is today's date",
             "wifi settings open pannu" to "open wifi settings",
             "wifi settings thira" to "open wifi settings",
+            "wifi on pannu" to "open wifi settings",
+            "wifi off pannu" to "open wifi settings",
+            "bluetooth on pannu" to "open bluetooth settings",
+            "bluetooth off pannu" to "open bluetooth settings",
             "bluetooth settings open pannu" to "open bluetooth settings",
             "settings open pannu" to "open settings",
             "camera open pannu" to "open camera",
@@ -124,6 +128,11 @@ class CommandParser(
             "en phone lock pannu" to "lock my phone"
         )
         exactAliases[text]?.let { return it }
+
+        Regex("^(.+?)\\s+ku\\s+(?:message|sms)\\s+anuppu\\s+(.+)$", RegexOption.IGNORE_CASE)
+            .matchEntire(original)?.let {
+                return "text ${it.groupValues[1].trim()} saying ${it.groupValues[2].trim()}"
+            }
 
         Regex("^(.+?)\\s+(?:ku|kitta)\\s+call\\s+(?:pannu|panunga)$", RegexOption.IGNORE_CASE)
             .matchEntire(original)?.let { return "call ${it.groupValues[1].trim()}" }
