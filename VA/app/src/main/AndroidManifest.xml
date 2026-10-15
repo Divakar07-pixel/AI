@@ -13,10 +13,6 @@
 
     <!-- Foreground Service permissions -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
-
-    <!-- Wake lock for continuous audio processing if screen turns off -->
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- Permission to set alarms and timers via standard AlarmClock intents -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
@@ -81,7 +77,7 @@
         <service
             android:name=".service.VoiceAssistantForegroundService"
             android:exported="false"
-            android:foregroundServiceType="microphone" />
+             />
 
         <!-- Receiver to handle notification 'Stop' action -->
         <receiver
