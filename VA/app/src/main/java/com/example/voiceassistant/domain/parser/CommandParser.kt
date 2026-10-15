@@ -167,7 +167,7 @@ class CommandParser(
         )
         val whatsappMatcher = whatsappPattern.matcher(normalized)
         if (whatsappMatcher.matches()) {
-            val recipient = whatsappMatcher.group(1)?.trim().orEmpty()
+            val recipient = whatsappMatcher.group(1)?.trim()?.trimEnd(',', ';', ':')?.trim().orEmpty()
             val body = whatsappMatcher.group(2)?.trim().orEmpty()
             if (recipient.isNotBlank() && body.isNotBlank()) {
                 return AssistantAction.RequireConfirmation(
