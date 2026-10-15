@@ -63,7 +63,9 @@ sealed class AssistantAction {
     data class SetAlarm(
         val hour: Int,
         val minute: Int,
-        val label: String = "Assistant Alarm"
+        val label: String = "Assistant Alarm",
+        /** 0 = today/next occurrence; 1 = tomorrow. */
+        val dayOffset: Int = 0
     ) : AssistantAction()
 
     // 5. Open Apps
