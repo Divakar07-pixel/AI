@@ -39,7 +39,7 @@ class MainActivity : ComponentActivity() {
         checkPermissions()
 
         setContent {
-            VoiceAssistantTheme {
+            VoiceAssistantTheme(darkTheme = true, dynamicColor = false) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
