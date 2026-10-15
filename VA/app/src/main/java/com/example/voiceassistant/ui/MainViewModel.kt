@@ -100,6 +100,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun startListening() {
         textToSpeechManager?.stop()
+        pauseWakeWordDetectionForCommand()
         if (_assistantState.value !is AssistantState.WaitingForConfirmation) {
             _assistantState.value = AssistantState.Listening()
         }
@@ -286,6 +287,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (!preserveCurrentState && _assistantState.value is AssistantState.Speaking) {
                     _assistantState.value = AssistantState.Idle
                 }
+                // Re-arm only after the command/response completes. A pending confirmation
+                // intentionally keeps wake-word capture paused so it cannot compete for audio.
+                if (!preserveCurrentState) resumeWakeWordDetectionIfEnabled()
             },
             onError = {
                 if (!preserveCurrentState && _assistantState.value is AssistantState.Speaking) {
@@ -300,6 +304,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             add(ChatMessage(sender = sender, text = text, actionBadge = actionBadge))
         }
         _messages.value = updated
+    }
+
+    private fun pauseWakeWordDetectionForCommand() {
+        if (!isForegroundServiceRunning.value) return
+        val intent = Intent(getApplication<Application>(), VoiceAssistantForegroundService::class.java).apply {
+            action = VoiceAssistantForegroundService.ACTION_PAUSE_DETECTION
+        }
+        getApplication<Application>().startService(intent)
+    }
+
+    private fun resumeWakeWordDetectionIfEnabled() {
+        if (!isForegroundServiceRunning.value) return
+        val intent = Intent(getApplication<Application>(), VoiceAssistantForegroundService::class.java).apply {
+            action = VoiceAssistantForegroundService.ACTION_START_SERVICE
+        }
+        getApplication<Application>().startService(intent)
     }
 
     fun toggleForegroundService(context: Context, enable: Boolean) {
