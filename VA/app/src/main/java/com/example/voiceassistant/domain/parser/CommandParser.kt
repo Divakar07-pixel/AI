@@ -1,6 +1,7 @@
 package com.example.voiceassistant.domain.parser
 
 import com.example.voiceassistant.domain.model.AssistantAction
+import com.example.voiceassistant.domain.model.MessageChannel
 import com.example.voiceassistant.domain.model.SensitiveAction
 import com.example.voiceassistant.domain.model.SettingType
 import java.text.SimpleDateFormat
@@ -135,7 +136,7 @@ class CommandParser(
             "^(?:open\\s+)?(?:whats\\s*app|what'?s\\s*app|whatsapp)\\s+and\\s+send\\s+(?:a\\s+)?(?:message|text)\\s+to\\s+(.+?)\\s+(?:saying|that|content\\s+is|message\\s+is)\\s+(.+)$",
             RegexOption.IGNORE_CASE
         ).matchEntire(original)?.let {
-            return "send message to ${it.groupValues[1].trim()} saying ${it.groupValues[2].trim()}"
+            return "send whatsapp message to ${it.groupValues[1].trim()} saying ${it.groupValues[2].trim()}"
         }
 
         Regex("^(.+?)\\s+ku\\s+(?:message|sms)\\s+anuppu\\s+(.+)$", RegexOption.IGNORE_CASE)
@@ -160,6 +161,22 @@ class CommandParser(
 
     private fun checkSensitiveAction(text: String): AssistantAction? {
         val normalized = text.trim()
+        val whatsappPattern = Pattern.compile(
+            "^(?:send\\s+)?(?:a\\s+)?whatsapp\\s+(?:message|text)\\s+to\\s+(.+?)\\s+(?:saying|that|content\\s+is|message\\s+is)\\s+(.+)$",
+            Pattern.CASE_INSENSITIVE
+        )
+        val whatsappMatcher = whatsappPattern.matcher(normalized)
+        if (whatsappMatcher.matches()) {
+            val recipient = whatsappMatcher.group(1)?.trim().orEmpty()
+            val body = whatsappMatcher.group(2)?.trim().orEmpty()
+            if (recipient.isNotBlank() && body.isNotBlank()) {
+                return AssistantAction.RequireConfirmation(
+                    action = SensitiveAction.SendMessage(recipient, body, MessageChannel.WHATSAPP),
+                    explanation = "Confirm opening WhatsApp for '$recipient' with this text: \"$body\""
+                )
+            }
+        }
+
         val msgPattern1 = Pattern.compile(
             "^(?:send(?:\\s+a)?\\s+(?:message|text|sms)\\s+to)\\s+(.+?)\\s+(?:saying|that|content\\s+is|message\\s+is)\\s+(.+)$",
             Pattern.CASE_INSENSITIVE
