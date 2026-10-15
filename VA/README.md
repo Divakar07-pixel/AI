@@ -40,6 +40,24 @@ The **Voice Assistant** is built as a grounded, dependable prototype for your An
 - The assistant **cannot unlock the phone**, read or bypass the PIN/password, defeat fingerprint/face authentication, silently toggle protected system settings, or automate arbitrary actions inside every app. Android requires explicit user authentication and/or app-specific APIs for those operations.
 - Opening an installed app is supported when its launcher activity is visible to Android and its spoken name matches the app label. Apps without launch activities, work-profile restrictions, OEM restrictions, and protected in-app actions may not be available.
 
+## 2.2 Hybrid adaptive command understanding
+
+When the local parser cannot recognize a phrase and AI is configured, the app can ask the Supabase Edge Function to normalize the request into one canonical command supported by the local allowlist.
+
+- **Local first:** commands recognized locally do not require a network round-trip.
+- **AI-assisted normalization:** unfamiliar phrasing can be mapped to an existing capability, including supported alarm, timer, app-launch, search, and contact/message intents.
+- **Local validation remains authoritative:** the app reparses the returned command through `CommandParser`. AI output is never executed directly. Sensitive results still enter the existing confirmation UI.
+- **Chat fallback:** if no supported command can be produced, the assistant can answer conversationally using the configured AI service.
+- **Privacy:** when this fallback is used, the spoken text may be sent to the configured Supabase Edge Function and AI provider. Do not include secrets in voice commands.
+
+Configure `SUPABASE_URL` and `SUPABASE_ANON_KEY` in ignored `VA/local.properties`; enable Supabase anonymous sign-in; configure `OPENAI_API_KEY` as a Supabase secret; then deploy the updated function from the `VA` directory with `supabase functions deploy assistant-chat`. The Android app does not contain the provider secret.
+
+AI normalization is not a guarantee that every phrasing will work. It can only map to the capabilities already implemented in the local parser/executor. New capabilities still require a reviewed implementation and tests.
+
+## 2.3 Voice-driven code editing status
+
+The app does **not yet** have a secure code-editing agent connected to the Windows checkout or a cloud repository. Requests such as "change the greeting" must not be treated as ordinary phone commands. A future developer mode needs explicit repository authorization, a patch preview, approval before writes, isolated builds/tests, and a reviewable branch/commit. It must never apply arbitrary shell commands or source changes merely because a model suggested them.
+
 ## 3. Mandatory Confirmation for Sensitive Actions
 
 To safeguard your device and personal data, the assistant detects sensitive intent and pauses execution until you explicitly confirm:
