@@ -11,6 +11,7 @@ import com.example.voiceassistant.domain.model.AssistantAction
 import com.example.voiceassistant.domain.model.ExecutionResult
 import com.example.voiceassistant.domain.model.SensitiveAction
 import com.example.voiceassistant.domain.model.SettingType
+import com.example.voiceassistant.service.AssistantDeviceAdminReceiver
 
 class ActionExecutor(private val context: Context) {
 
@@ -39,6 +40,8 @@ class ActionExecutor(private val context: Context) {
                 is AssistantAction.OpenSetting -> {
                     executeOpenSetting(action.settingType, action.displayName)
                 }
+
+                AssistantAction.LockDevice -> executeLockDevice()
 
                 is AssistantAction.OpenApp -> {
                     executeOpenApp(action.appName, action.packageName)
@@ -231,6 +234,27 @@ class ActionExecutor(private val context: Context) {
         }
 
         return ExecutionResult.Failure("App '$appName' is not installed on this device.")
+    }
+
+    private fun executeLockDevice(): ExecutionResult {
+        val policyManager = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        val adminComponent = ComponentName(context, AssistantDeviceAdminReceiver::class.java)
+
+        return if (policyManager.isAdminActive(adminComponent)) {
+            policyManager.lockNow()
+            ExecutionResult.Success("Locking your phone now.")
+        } else {
+            val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent)
+                putExtra(
+                    DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                    "Enable this optional capability only if you want the assistant to lock your phone on your explicit command."
+                )
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            ExecutionResult.Success("Android opened the device-admin consent screen. Review and enable it to use the voice lock command.")
+        }
     }
 
     private fun formatDuration(seconds: Int): String {
