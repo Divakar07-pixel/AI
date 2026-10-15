@@ -50,6 +50,10 @@ class ActionExecutor(private val context: Context) {
                     executeOpenApp(action.appName, action.packageName)
                 }
 
+                is AssistantAction.SearchYouTube -> {
+                    executeYouTubeSearch(action.query)
+                }
+
                 is AssistantAction.RequireConfirmation -> {
                     ExecutionResult.Failure("Action requires explicit user confirmation before execution.")
                 }
@@ -209,6 +213,19 @@ class ActionExecutor(private val context: Context) {
             }
             context.startActivity(fallback)
             ExecutionResult.Success("Opened General Settings (specific screen not supported on device).")
+        }
+    }
+
+    private fun executeYouTubeSearch(query: String): ExecutionResult {
+        val searchUri = Uri.parse("https://www.youtube.com/results?search_query=${Uri.encode(query)}")
+        val intent = Intent(Intent.ACTION_VIEW, searchUri).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return if (intent.resolveActivity(context.packageManager) != null) {
+            context.startActivity(intent)
+            ExecutionResult.Success("Searching YouTube for '$query'.")
+        } else {
+            ExecutionResult.Failure("No app or browser can open YouTube search results.")
         }
     }
 
