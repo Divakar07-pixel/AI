@@ -29,6 +29,46 @@ class AiChatClient(context: Context) {
     @Volatile
     private var cachedAccessToken: String? = null
 
+
+    /**
+     * Normalize an unfamiliar phrase into an existing local allowlisted command.
+     * Callers must re-parse the result locally before any action can run.
+     */
+    suspend fun interpretCommand(command: String): String = withContext(Dispatchers.IO) {
+        if (!isConfigured) throw IOException("AI command understanding is not configured.")
+        val token = cachedAccessToken ?: createAnonymousSession().also { cachedAccessToken = it }
+        try {
+            invokeIntent(token, command)
+        } catch (error: IOException) {
+            if (!error.message.orEmpty().contains("HTTP 401") &&
+                !error.message.orEmpty().contains("HTTP 403")) throw error
+            val refreshed = createAnonymousSession()
+            cachedAccessToken = refreshed
+            invokeIntent(refreshed, command)
+        }
+    }
+
+    private fun invokeIntent(accessToken: String, command: String): String {
+        val connection = openConnection("$supabaseUrl/functions/v1/assistant-chat", "POST")
+        try {
+            connection.setRequestProperty("apikey", anonKey)
+            connection.setRequestProperty("Authorization", "Bearer $accessToken")
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.doOutput = true
+            connection.outputStream.use {
+                it.write(JSONObject().put("mode", "interpret")
+                    .put("command", command.take(MAX_COMMAND_CHARS))
+                    .toString().toByteArray(Charsets.UTF_8))
+            }
+            val status = connection.responseCode
+            val body = readBody(connection, status)
+            if (status !in 200..299) throw IOException("AI command interpretation failed (HTTP $status).")
+            return JSONObject(body).optString("normalized_command").trim().take(MAX_COMMAND_CHARS)
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     suspend fun reply(history: List<ChatMessage>): String = withContext(Dispatchers.IO) {
         if (!isConfigured) {
             throw IOException("AI is not configured. Add SUPABASE_URL and SUPABASE_ANON_KEY to VA/local.properties.")
@@ -117,6 +157,7 @@ class AiChatClient(context: Context) {
     }
 
     private companion object {
+        const val MAX_COMMAND_CHARS = 500
         const val MAX_HISTORY = 20
         const val MAX_MESSAGE_CHARS = 3000
         const val MAX_RESPONSE_CHARS = 16000
