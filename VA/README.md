@@ -268,10 +268,10 @@ The Android client signs in anonymously and calls `/functions/v1/assistant-chat`
 From PowerShell in `F:\\VS Code\\AI-main\\VA` (adjust to your clone path), run:
 
 ```powershell
-.\\gradlew.bat testDebugUnitTest assembleDebug --no-daemon --stacktrace
+& "F:\\Downloads\\gradle-8.7\\bin\\gradle.bat" -p . testDebugUnitTest assembleDebug --no-daemon --stacktrace
 ```
 
-The GitHub Actions workflow in `.github/workflows/android-ci.yml` also runs unit tests and assembles a debug APK for pushes and pull requests touching `VA/`.
+The repository's Gradle wrapper JAR currently cannot load `GradleWrapperMain`, so the local command above uses a separately installed Gradle 8.7 distribution. The GitHub Actions workflow in `.github/workflows/android-ci.yml` also downloads Gradle 8.7 directly, runs unit tests, and assembles a debug APK for pushes and pull requests touching `VA/`.
 
 ## 8. Known limitations
 
