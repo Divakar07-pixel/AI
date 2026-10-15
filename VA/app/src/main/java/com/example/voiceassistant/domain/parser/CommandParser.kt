@@ -103,7 +103,8 @@ class CommandParser(
      * remain allowlisted and are never delegated to the AI model.
      */
     private fun normalizeTanglish(input: String): String {
-        val text = input.trim().lowercase(Locale.ROOT)
+        val original = input.trim().replace(Regex("\\s+"), " ")
+        val text = original.lowercase(Locale.ROOT)
             .replace(Regex("[.,?!]"), "")
             .replace(Regex("\\s+"), " ")
 
@@ -124,19 +125,19 @@ class CommandParser(
         )
         exactAliases[text]?.let { return it }
 
-        Regex("^(.+?)\\s+(?:ku|kitta)\\s+call\\s+(?:pannu|panunga)$")
-            .matchEntire(text)?.let { return "call \${it.groupValues[1].trim()}" }
+        Regex("^(.+?)\\s+(?:ku|kitta)\\s+call\\s+(?:pannu|panunga)$", RegexOption.IGNORE_CASE)
+            .matchEntire(original)?.let { return "call \${it.groupValues[1].trim()}" }
 
-        Regex("^(.+?)\\s+(?:open\\s+pannu|open\\s+panunga|thira|thirakku)$")
-            .matchEntire(text)?.let { return "open \${it.groupValues[1].trim()}" }
+        Regex("^(.+?)\\s+(?:open\\s+pannu|open\\s+panunga|thira|thirakku)$", RegexOption.IGNORE_CASE)
+            .matchEntire(original)?.let { return "open \${it.groupValues[1].trim()}" }
 
-        Regex("^(.+?)\\s+(?:launch|start)\\s+pannu$")
-            .matchEntire(text)?.let { return "open \${it.groupValues[1].trim()}" }
+        Regex("^(.+?)\\s+(?:launch|start)\\s+pannu$", RegexOption.IGNORE_CASE)
+            .matchEntire(original)?.let { return "open \${it.groupValues[1].trim()}" }
 
-        Regex("^(?:timer|oru timer)\\s+(?:for\\s+)?(.+?)\\s+(?:set\\s+pannu|set\\s+panunga)$")
-            .matchEntire(text)?.let { return "set a timer for \${it.groupValues[1].trim()}" }
+        Regex("^(?:timer|oru timer)\\s+(?:for\\s+)?(.+?)\\s+(?:set\\s+pannu|set\\s+panunga)$", RegexOption.IGNORE_CASE)
+            .matchEntire(original)?.let { return "set a timer for \${it.groupValues[1].trim()}" }
 
-        return text
+        return original
     }
 
     private fun checkSensitiveAction(text: String): AssistantAction? {
