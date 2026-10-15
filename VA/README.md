@@ -25,10 +25,20 @@ The **Voice Assistant** is built as a grounded, dependable prototype for your An
 | **Time & Date** | *"What time is it?"*, *"Tell me the time"*, *"What is today's date?"*, *"What day is it?"* | In-app speech output (`TextToSpeech`) + Visual chat transcript |
 | **Timers** | *"Set a timer for 5 minutes"*, *"Timer for 30 seconds"*, *"Set timer for 1 hour"* | `AlarmClock.ACTION_SET_TIMER` |
 | **Alarms** | *"Set an alarm for 7:30 AM"*, *"Wake me up at 6 AM"*, *"Alarm for 8 PM"* | `AlarmClock.ACTION_SET_ALARM` |
-| **Open Apps** | *"Open Camera"*, *"Open YouTube"*, *"Launch Chrome"*, *"Open Maps"*, *"Open Calculator"*, *"Open Clock"*, *"Open Calendar"* | `MediaStore.ACTION_IMAGE_CAPTURE`, `PackageManager.getLaunchIntentForPackage()` |
+| **Open Apps** | *"Open Camera"*, *"Open YouTube"*, *"Open Instagram"*, *"Open WhatsApp"*, or *"Open <installed app name>"* | Matches the installed launcher app label and opens its launch activity; exact names are preferred over partial matches. |
+| **Tanglish** | *"time enna"*, *"innaiku date enna"*, *"camera open pannu"*, *"Amma ku call pannu"*, *"phone lock pannu"* | Local normalization maps supported Tanglish patterns to the same allowlisted actions; calls/messages still require confirmation. |
+| **Lock Phone** | *"Lock my phone"* or *"phone lock pannu"* | Android DevicePolicyManager force-lock after the user explicitly enables this app as a device administrator. This locks only; it cannot unlock or bypass screen security. |
 | **Settings** | *"Open Wi-Fi settings"*, *"Open Bluetooth"*, *"Open Display settings"*, *"Open Battery settings"*, *"Open Sound settings"*, *"Open App settings"* | `Settings.ACTION_WIFI_SETTINGS`, `Settings.ACTION_BLUETOOTH_SETTINGS`, `Settings.ACTION_DISPLAY_SETTINGS`, `Settings.ACTION_SOUND_SETTINGS`, etc. |
 
 ---
+
+## 2.1 Tanglish and device protection
+
+- The recognizer prefers **English (India)** on non-Tamil device locales to improve English/Tanglish transcription; it keeps **Tamil (India)** when Android's device language is Tamil. Actual transcription quality depends on the speech-recognition provider and its installed language packs.
+- Supported local Tanglish patterns include `time enna`, `ippo time enna`, `innaiku date enna`, `camera open pannu`, `<contact> ku call pannu`, and `phone lock pannu`. This is a starter phrase set, not a promise to understand every Tamil dialect or every mixed-language sentence.
+- To use phone locking, issue `lock my phone` while the assistant is available. Android will show its device-administrator consent screen; review it and enable the permission yourself. Once enabled, the command can lock the phone. To revoke it, open Android Settings and deactivate Voice Assistant under device-admin apps.
+- The assistant **cannot unlock the phone**, read or bypass the PIN/password, defeat fingerprint/face authentication, silently toggle protected system settings, or automate arbitrary actions inside every app. Android requires explicit user authentication and/or app-specific APIs for those operations.
+- Opening an installed app is supported when its launcher activity is visible to Android and its spoken name matches the app label. Apps without launch activities, work-profile restrictions, OEM restrictions, and protected in-app actions may not be available.
 
 ## 3. Mandatory Confirmation for Sensitive Actions
 
