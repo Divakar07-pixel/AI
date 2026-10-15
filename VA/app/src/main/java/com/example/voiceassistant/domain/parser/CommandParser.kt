@@ -29,22 +29,28 @@ class CommandParser(
     fun parseConfirmationResponse(text: String): ConfirmationDecision {
         val clean = text.trim().lowercase(Locale.ROOT)
             .replace(Regex("[.,?!]"), "")
+            .replace(Regex("\\s+"), " ")
+            .trim()
 
+        // Exact phrases only: "yes, but no" must never confirm an action.
         val positiveTokens = setOf(
-            "yes", "confirm", "proceed", "go ahead", "do it", "sure", "yeah", "yep", "ok", "okay"
+            "yes", "yes please", "confirm", "proceed", "go ahead", "do it",
+            "sure", "yeah", "yep", "ok", "okay"
         )
         val negativeTokens = setOf(
-            "no", "cancel", "stop", "abort", "never mind", "dont", "don't", "reject", "nope"
+            "no", "no cancel", "cancel", "stop", "abort", "never mind",
+            "dont", "don't", "reject", "nope"
         )
 
         return when {
-            positiveTokens.any { clean == it || clean.startsWith("$it ") } -> ConfirmationDecision.CONFIRMED
-            negativeTokens.any { clean == it || clean.startsWith("$it ") } -> ConfirmationDecision.CANCELLED
+            clean in positiveTokens -> ConfirmationDecision.CONFIRMED
+            clean in negativeTokens -> ConfirmationDecision.CANCELLED
             else -> ConfirmationDecision.UNCLEAR
         }
     }
 
     /**
+     * Parses a spoken command    /**
      * Parses a spoken command into an [AssistantAction].
      */
     fun parseCommand(rawText: String): AssistantAction {
@@ -82,81 +88,87 @@ class CommandParser(
     }
 
     private fun checkSensitiveAction(text: String): AssistantAction? {
-        // Send message / SMS: "send a message to [recipient] saying [text]" or "text [recipient] [text]"
+        val normalized = text.trim()
         val msgPattern1 = Pattern.compile(
-            "^(?:send(?:\\s+a)?\\s+(?:message|text|sms)\\s+to)\\s+([a-zA-Z0-9_\\s]+?)\\s+(?:saying|that)\\s+(.+)$",
+            "^(?:send(?:\\s+a)?\\s+(?:message|text|sms)\\s+to)\\s+(.+?)\\s+(?:saying|that)\\s+(.+)$",
             Pattern.CASE_INSENSITIVE
         )
-        val msgMatcher1 = msgPattern1.matcher(text)
+        val msgMatcher1 = msgPattern1.matcher(normalized)
         if (msgMatcher1.matches()) {
-            val recipient = msgMatcher1.group(1)?.trim() ?: "Recipient"
-            val body = msgMatcher1.group(2)?.trim() ?: ""
-            return AssistantAction.RequireConfirmation(
-                action = SensitiveAction.SendMessage(recipient, body),
-                explanation = "Confirm sending message to '$recipient' saying: \"$body\""
-            )
+            val recipient = msgMatcher1.group(1)?.trim().orEmpty()
+            val body = msgMatcher1.group(2)?.trim().orEmpty()
+            if (recipient.isNotBlank() && body.isNotBlank()) {
+                return AssistantAction.RequireConfirmation(
+                    action = SensitiveAction.SendMessage(recipient, body),
+                    explanation = "Confirm opening a message to '$recipient' with this text: \"$body\""
+                )
+            }
         }
 
         val msgPattern2 = Pattern.compile(
-            "^(?:text|message)\\s+([a-zA-Z0-9_\\s]+?)\\s+(?:saying|that)\\s+(.+)$",
+            "^(?:text|message)\\s+(.+?)\\s+(?:saying|that)\\s+(.+)$",
             Pattern.CASE_INSENSITIVE
         )
-        val msgMatcher2 = msgPattern2.matcher(text)
+        val msgMatcher2 = msgPattern2.matcher(normalized)
         if (msgMatcher2.matches()) {
-            val recipient = msgMatcher2.group(1)?.trim() ?: "Recipient"
-            val body = msgMatcher2.group(2)?.trim() ?: ""
-            return AssistantAction.RequireConfirmation(
-                action = SensitiveAction.SendMessage(recipient, body),
-                explanation = "Confirm sending text to '$recipient': \"$body\""
-            )
+            val recipient = msgMatcher2.group(1)?.trim().orEmpty()
+            val body = msgMatcher2.group(2)?.trim().orEmpty()
+            if (recipient.isNotBlank() && body.isNotBlank()) {
+                return AssistantAction.RequireConfirmation(
+                    action = SensitiveAction.SendMessage(recipient, body),
+                    explanation = "Confirm opening a message to '$recipient' with this text: \"$body\""
+                )
+            }
         }
 
-        // Phone call: "call [target]" or "dial [target]"
         val callPattern = Pattern.compile(
-            "^(?:call|dial|make\\s+a\\s+phone\\s+call\\s+to)\\s+([a-zA-Z0-9_+\\s]+)$",
+            "^(?:call|dial|make\\s+a\\s+phone\\s+call\\s+to)\\s+(.+?)$",
             Pattern.CASE_INSENSITIVE
         )
-        val callMatcher = callPattern.matcher(text)
+        val callMatcher = callPattern.matcher(normalized)
         if (callMatcher.matches()) {
-            val target = callMatcher.group(1)?.trim() ?: "unknown"
-            return AssistantAction.RequireConfirmation(
-                action = SensitiveAction.MakePhoneCall(target),
-                explanation = "Confirm placing a phone call to '$target'"
-            )
+            val target = callMatcher.group(1)?.trim().orEmpty()
+            if (target.isNotBlank()) {
+                return AssistantAction.RequireConfirmation(
+                    action = SensitiveAction.MakePhoneCall(target),
+                    explanation = "Confirm opening the dialer for '$target'"
+                )
+            }
         }
 
-        // Deletion actions
-        if (text.startsWith("delete ", ignoreCase = true) ||
-            text.startsWith("remove ", ignoreCase = true) ||
-            text.startsWith("clear data", ignoreCase = true)
-        ) {
-            val target = text.replaceFirst(Regex("^(?:delete|remove)\\s+", RegexOption.IGNORE_CASE), "").trim()
+        val deleteMatcher = Pattern.compile(
+            "^(?:delete|remove)\\s+(.+)$", Pattern.CASE_INSENSITIVE
+        ).matcher(normalized)
+        if (deleteMatcher.matches() || normalized.matches(Regex("^clear\\s+data(?:\\s+.*)?$", RegexOption.IGNORE_CASE))) {
+            val target = if (deleteMatcher.matches()) deleteMatcher.group(1).trim()
+                else normalized.replaceFirst(Regex("^clear\\s+data\\s*", RegexOption.IGNORE_CASE), "").ifBlank { "requested data" }
             return AssistantAction.RequireConfirmation(
                 action = SensitiveAction.DeleteData(target),
-                explanation = "High risk: Confirm deleting '$target'?"
+                explanation = "High risk: confirm the request to delete '$target'? Automated deletion is blocked."
             )
         }
 
-        // Purchases
-        if (text.startsWith("buy ", ignoreCase = true) ||
-            text.startsWith("purchase ", ignoreCase = true) ||
-            text.startsWith("order ", ignoreCase = true)
-        ) {
-            val item = text.replaceFirst(Regex("^(?:buy|purchase|order)\\s+", RegexOption.IGNORE_CASE), "").trim()
-            return AssistantAction.RequireConfirmation(
-                action = SensitiveAction.MakePurchase(item),
-                explanation = "Confirm commercial purchase or order for '$item'?"
-            )
+        val purchaseMatcher = Pattern.compile(
+            "^(?:buy|purchase|order)\\s+(.+)$", Pattern.CASE_INSENSITIVE
+        ).matcher(normalized)
+        if (purchaseMatcher.matches()) {
+            val item = purchaseMatcher.group(1)?.trim().orEmpty()
+            if (item.isNotBlank()) {
+                return AssistantAction.RequireConfirmation(
+                    action = SensitiveAction.MakePurchase(item),
+                    explanation = "Confirm the request concerning '$item'? Automated purchases are blocked."
+                )
+            }
         }
 
-        // Security / Privacy changes
-        val lowerText = text.lowercase(Locale.ROOT)
-        if (lowerText.contains("security") || lowerText.contains("password") ||
-            lowerText.contains("pin") || lowerText.contains("privacy setting")
-        ) {
+        val lowerText = normalized.lowercase(Locale.ROOT)
+        val securityRequest = lowerText.matches(
+            Regex("^(change|update|reset|disable|enable|remove|set)\\s+.*(password|pin|screen lock|privacy setting|security setting).*$")
+        )
+        if (securityRequest) {
             return AssistantAction.RequireConfirmation(
-                action = SensitiveAction.ChangeSecuritySetting(text),
-                explanation = "Warning: Security setting changes require manual interaction."
+                action = SensitiveAction.ChangeSecuritySetting(normalized),
+                explanation = "Security changes require manual interaction. Open Security Settings?"
             )
         }
 
@@ -164,110 +176,81 @@ class CommandParser(
     }
 
     private fun checkTimeOrDate(text: String): AssistantAction? {
-        val isTimeQuery = text.contains("what time") ||
-                text == "time" ||
-                text == "current time" ||
-                text == "tell me the time" ||
-                text == "what's the time"
-
+        val isTimeQuery = text.matches(Regex(
+            "^(what time is it|what('s| is) the time|current time|tell me the time|time)$"
+        ))
         if (isTimeQuery) {
             val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-            val formatted = timeFormat.format(Date(timeProvider()))
-            return AssistantAction.TellTime("The current time is $formatted.")
+            return AssistantAction.TellTime("The current time is ${timeFormat.format(Date(timeProvider()))}.")
         }
 
-        val isDateQuery = text.contains("what date") ||
-                text.contains("today's date") ||
-                text == "what is today's date" ||
-                text == "what's the date" ||
-                text == "current date" ||
-                text == "what day is it" ||
-                text == "tell me the date"
-
+        val isDateQuery = text.matches(Regex(
+            "^(what date is it|what is today's date|what's today's date|today's date|what's the date|what is the date|current date|what day is it|tell me the date)$"
+        ))
         if (isDateQuery) {
             val dateFormat = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault())
-            val formatted = dateFormat.format(Date(timeProvider()))
-            return AssistantAction.TellDate("Today is $formatted.")
+            return AssistantAction.TellDate("Today is ${dateFormat.format(Date(timeProvider()))}.")
         }
-
         return null
     }
 
     private fun checkTimer(text: String): AssistantAction? {
-        // e.g. "set a timer for 10 minutes", "timer 5 minutes", "timer for 30 seconds", "set timer 1 hour"
-        val timerRegex = Pattern.compile(
-            ".*?(?:timer(?:\\s+for)?)\\s+(\\d+)\\s*(second|seconds|sec|minute|minutes|min|hour|hours|hr)?.*",
-            Pattern.CASE_INSENSITIVE
+        val pattern = Regex(
+            "^(?:set\\s+(?:a\\s+)?timer(?:\\s+for)?|timer(?:\\s+for)?)\\s+(\\d+)\\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)?$",
+            RegexOption.IGNORE_CASE
         )
-        val matcher = timerRegex.matcher(text)
-        if (matcher.matches()) {
-            val amount = matcher.group(1)?.toIntOrNull() ?: return null
-            val unit = matcher.group(2)?.lowercase(Locale.ROOT) ?: "minutes"
-
-            val seconds = when {
-                unit.startsWith("sec") -> amount
-                unit.startsWith("hour") || unit.startsWith("hr") -> amount * 3600
-                else -> amount * 60 // minutes default
-            }
-
-            val label = "$amount $unit Assistant Timer"
-            return AssistantAction.SetTimer(durationSeconds = seconds, label = label)
+        val match = pattern.matchEntire(text.trim()) ?: return null
+        val amount = match.groupValues[1].toLongOrNull() ?: return null
+        val unit = match.groupValues[2].lowercase(Locale.ROOT).ifBlank { "minutes" }
+        if (amount <= 0L) return AssistantAction.Unknown(text, "Timer duration must be greater than zero.")
+        val multiplier = when {
+            unit.startsWith("sec") -> 1L
+            unit.startsWith("hour") || unit.startsWith("hr") -> 3600L
+            else -> 60L
         }
-        return null
+        val seconds = amount * multiplier
+        if (seconds !in 1L..604800L) {
+            return AssistantAction.Unknown(text, "Timer duration must be between 1 second and 7 days.")
+        }
+        val duration = seconds.toInt()
+        return AssistantAction.SetTimer(durationSeconds = duration, label = "$amount $unit Assistant Timer")
     }
 
     private fun checkAlarm(text: String): AssistantAction? {
-        // e.g. "set an alarm for 7:30 am", "alarm for 8:00", "wake me up at 6 am", "alarm 7 pm"
-        val alarmRegex = Pattern.compile(
-            ".*?(?:alarm(?:\\s+for)?|wake\\s+me\\s+up\\s+at)\\s+(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?.*",
-            Pattern.CASE_INSENSITIVE
+        val pattern = Regex(
+            "^(?:set\\s+(?:an?\\s+)?alarm(?:\\s+for)?|alarm(?:\\s+for)?|wake\\s+me\\s+up\\s+at)\\s+(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?$",
+            RegexOption.IGNORE_CASE
         )
-        val matcher = alarmRegex.matcher(text)
-        if (matcher.matches()) {
-            var hour = matcher.group(1)?.toIntOrNull() ?: return null
-            val minute = matcher.group(2)?.toIntOrNull() ?: 0
-            val amPm = matcher.group(3)?.lowercase(Locale.ROOT)
-
-            if (amPm == "pm" && hour < 12) {
-                hour += 12
-            } else if (amPm == "am" && hour == 12) {
-                hour = 0
-            }
-
-            if (hour in 0..23 && minute in 0..59) {
-                return AssistantAction.SetAlarm(
-                    hour = hour,
-                    minute = minute,
-                    label = "Assistant Alarm"
-                )
-            }
+        val match = pattern.matchEntire(text.trim()) ?: return null
+        var hour = match.groupValues[1].toIntOrNull() ?: return null
+        val minute = match.groupValues[2].ifBlank { "0" }.toIntOrNull() ?: return null
+        val amPm = match.groupValues[3].lowercase(Locale.ROOT)
+        if (minute !in 0..59) return AssistantAction.Unknown(text, "Alarm minutes must be between 00 and 59.")
+        if (amPm.isNotEmpty()) {
+            if (hour !in 1..12) return AssistantAction.Unknown(text, "Use an hour from 1 to 12 with AM or PM.")
+            if (amPm == "pm" && hour < 12) hour += 12
+            if (amPm == "am" && hour == 12) hour = 0
+        } else if (hour !in 0..23) {
+            return AssistantAction.Unknown(text, "Use a 24-hour time or include AM/PM.")
         }
-        return null
+        return AssistantAction.SetAlarm(hour = hour, minute = minute, label = "Assistant Alarm")
     }
 
     private fun checkSettings(text: String): AssistantAction? {
+        val target = text.trim()
+            .removePrefix("open ").removePrefix("show ").removePrefix("go to ").removePrefix("launch ")
+            .removeSuffix(" settings").trim()
         return when {
-            text.contains("wi-fi") || text.contains("wifi") ->
+            target in setOf("wi-fi", "wifi", "wireless", "network") || text in setOf("open wifi settings", "open wi-fi settings") ->
                 AssistantAction.OpenSetting(SettingType.WIFI, "Wi-Fi Settings")
-
-            text.contains("bluetooth") ->
-                AssistantAction.OpenSetting(SettingType.BLUETOOTH, "Bluetooth Settings")
-
-            text.contains("display") || text.contains("screen brightness") ->
-                AssistantAction.OpenSetting(SettingType.DISPLAY, "Display Settings")
-
-            text.contains("battery") ->
-                AssistantAction.OpenSetting(SettingType.BATTERY, "Battery Settings")
-
-            text.contains("sound") || text.contains("volume") || text.contains("audio settings") ->
-                AssistantAction.OpenSetting(SettingType.SOUND, "Sound & Vibration Settings")
-
-            text.contains("app settings") || text.contains("applications") || text.contains("installed apps") ->
+            target == "bluetooth" -> AssistantAction.OpenSetting(SettingType.BLUETOOTH, "Bluetooth Settings")
+            target in setOf("display", "screen", "screen brightness") -> AssistantAction.OpenSetting(SettingType.DISPLAY, "Display Settings")
+            target == "battery" -> AssistantAction.OpenSetting(SettingType.BATTERY, "Battery Settings")
+            target in setOf("sound", "volume", "audio") -> AssistantAction.OpenSetting(SettingType.SOUND, "Sound & Vibration Settings")
+            target in setOf("app", "apps", "applications", "installed apps") || text in setOf("open app settings", "open applications") ->
                 AssistantAction.OpenSetting(SettingType.APPS, "App Management Settings")
-
-            text == "open settings" || text == "device settings" || text == "system settings" ->
+            text in setOf("open settings", "device settings", "system settings") ->
                 AssistantAction.OpenSetting(SettingType.GENERAL, "System Settings")
-
             else -> null
         }
     }
