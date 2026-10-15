@@ -70,7 +70,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         speechRecognizerManager = SpeechRecognizerManager(
             context = getApplication(),
             onReady = {
-                _assistantState.value = AssistantState.Listening("", 0f)
+                // Do not discard a pending sensitive action when the user opens the mic to confirm it.
+                if (_assistantState.value !is AssistantState.WaitingForConfirmation) {
+                    _assistantState.value = AssistantState.Listening("", 0f)
+                }
             },
             onRmsChanged = { rmsDb ->
                 val current = _assistantState.value
@@ -96,7 +99,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun startListening() {
         textToSpeechManager?.stop()
-        _assistantState.value = AssistantState.Listening()
+        if (_assistantState.value !is AssistantState.WaitingForConfirmation) {
+            _assistantState.value = AssistantState.Listening()
+        }
         speechRecognizerManager?.startListening()
     }
 
