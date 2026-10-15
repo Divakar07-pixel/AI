@@ -221,15 +221,19 @@ class ActionExecutor(private val context: Context) {
             addCategory(Intent.CATEGORY_LAUNCHER)
         }
         val resolveInfoList = pm.queryIntentActivities(mainIntent, 0)
-        for (info in resolveInfoList) {
-            val label = info.loadLabel(pm).toString()
-            if (label.equals(appName, ignoreCase = true) || label.contains(appName, ignoreCase = true)) {
-                val intent = pm.getLaunchIntentForPackage(info.activityInfo.packageName)
-                if (intent != null) {
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    context.startActivity(intent)
-                    return ExecutionResult.Success("Opening $label.")
-                }
+        val exactMatch = resolveInfoList.firstOrNull {
+            it.loadLabel(pm).toString().equals(appName, ignoreCase = true)
+        }
+        val partialMatch = exactMatch ?: resolveInfoList.firstOrNull {
+            it.loadLabel(pm).toString().contains(appName, ignoreCase = true)
+        }
+        if (partialMatch != null) {
+            val label = partialMatch.loadLabel(pm).toString()
+            val intent = pm.getLaunchIntentForPackage(partialMatch.activityInfo.packageName)
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+                return ExecutionResult.Success("Opening $label.")
             }
         }
 
