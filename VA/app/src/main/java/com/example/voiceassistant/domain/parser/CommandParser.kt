@@ -207,6 +207,9 @@ class CommandParser(
             unit.startsWith("hour") || unit.startsWith("hr") -> 3600L
             else -> 60L
         }
+        if (amount > 604800L / multiplier) {
+            return AssistantAction.Unknown(text, "Timer duration must be between 1 second and 7 days.")
+        }
         val seconds = amount * multiplier
         if (seconds !in 1L..604800L) {
             return AssistantAction.Unknown(text, "Timer duration must be between 1 second and 7 days.")
