@@ -61,16 +61,16 @@ fun PrivacyDisclaimerDialog(
             ) {
                 PrivacyPoint(
                     icon = Icons.Default.MicNone,
-                    title = "No Audio Recording or Storage",
-                    body = "Audio is never recorded to disk or stored. Voice is streamed strictly in memory to the native Android SpeechRecognizer engine."
+                    title = "Audio Handling",
+                    body = "This app does not write microphone audio to files. Android's selected speech-recognition service processes speech according to that provider's own settings and privacy policy."
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
                 PrivacyPoint(
                     icon = Icons.Default.Lock,
-                    title = "No Cloud AI / No Hidden Keys",
-                    body = "All commands are processed using Android system APIs and on-device logic. No audio or transcripts are sent to third-party online AI services."
+                    title = "Optional AI Chat",
+                    body = "Device commands are checked locally. When AI chat is configured, text messages and recent conversation history are sent to your configured Supabase function and AI provider. Do not share passwords, PINs, OTPs, or sensitive information. The provider API key stays on the server."
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -78,7 +78,7 @@ fun PrivacyDisclaimerDialog(
                 PrivacyPoint(
                     icon = Icons.Default.VerifiedUser,
                     title = "Mandatory Confirmation for Sensitive Actions",
-                    body = "The assistant will never send messages, make calls, or change settings without explicit voice or screen confirmation."
+                    body = "Sensitive commands require confirmation before the app opens a system messaging app or dialer. You must review and complete the final send or call in Android."
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
