@@ -27,7 +27,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
- * Foreground Service for background wake-word monitoring.
+ * Foreground-service lifecycle demo. It does not capture audio or detect wake words.
  *
  * Compliance & Android restrictions:
  * - Uses foregroundServiceType="microphone" (mandatory for Android 14+ / API 34+).
@@ -61,11 +61,6 @@ class VoiceAssistantForegroundService : Service() {
         super.onCreate()
         createNotificationChannel()
 
-        val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
-        wakeLock = powerManager?.newWakeLock(
-            PowerManager.PARTIAL_WAKE_LOCK,
-            "VoiceAssistant::WakeWordLock"
-        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -100,7 +95,6 @@ class VoiceAssistantForegroundService : Service() {
             startForeground(NOTIFICATION_ID, notification)
         }
 
-        wakeLock?.acquire(10 * 60 * 1000L /* 10 minutes timeout */)
         _isServiceRunning.value = true
     }
 
@@ -125,7 +119,7 @@ class VoiceAssistantForegroundService : Service() {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.service_listening_title))
-            .setContentText("Wake-word monitoring active. Tap to open app.")
+            .setContentText("Service demo running; wake-word detection is not implemented.")
             .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .setContentIntent(openAppPendingIntent)
