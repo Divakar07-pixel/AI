@@ -35,4 +35,5 @@ jobs:
           unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
 
       - name: Run unit tests and assemble debug APK
-        run: "$RUNNER_TEMP/gradle-8.7/bin/gradle" -p VA testDebugUnitTest assembleDebug --no-daemon --stacktrace
+        run: |
+          "$RUNNER_TEMP/gradle-8.7/bin/gradle" -p VA testDebugUnitTest assembleDebug --no-daemon --stacktrace
