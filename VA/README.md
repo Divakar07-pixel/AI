@@ -10,7 +10,7 @@ The **Voice Assistant** is built as a grounded, dependable prototype for your An
 
 ### Core Principles
 - **No Grand Claims**: The assistant does not claim to control every app or perform arbitrary actions. It strictly adheres to an explicit, safe allowlist.
-- **Push-to-Talk Primary**: Voice commands are supported when you open the app. Background wake-word detection is not implemented.
+- **User-enabled wake word**: The optional Hey Max mode uses Picovoice Porcupine in a microphone foreground service. Setup requires a custom Android `.ppn` model and a Picovoice AccessKey; see `HEY_MAX_SETUP.md`.
 - **Explicit Confirmation Gates**: Asks for confirmation before sending messages, placing calls, deleting data, making purchases, or changing security settings.
 - **Privacy-aware design**: This app does not write microphone audio to files. Android's selected speech-recognition provider may process audio according to that provider's own policies. Optional AI chat sends text conversation history to the configured Supabase Edge Function.
 - **Zero Stealth Operations**: No arbitrary shell scripts, no accessibility service taps, and no permission bypasses.
@@ -82,28 +82,23 @@ To safeguard your device and personal data, the assistant detects sensitive inte
 
 ---
 
-## 4. Background Wake-Word Status & Android Limitations
+## 4. Hey Max Offline Wake-Word Mode & Android Limitations
 
-### The Technical Reality on Modern Android (API 30+ / Android 11, 12, 13, 14, 15)
+The user can enable Hey Max from the app while it is visible. Porcupine detects the wake phrase locally in a foreground microphone service and shows a persistent notification with a Stop action.
 
-The requirement to support a user-enabled wake-word mode when the device is locked was investigated against Android platform security and battery specifications:
+### Required setup
+- Create an **English / Android** custom keyword model for **Hey Max** in [Picovoice Console](https://console.picovoice.ai/).
+- Place the downloaded model at `app/src/main/assets/Hey-Max_android.ppn`.
+- Add `PICOVOICE_ACCESS_KEY=...` to the ignored `VA/local.properties` file, then rebuild.
+- Follow the detailed instructions in [HEY_MAX_SETUP.md](HEY_MAX_SETUP.md).
 
-1. **Background Microphone Restrictions**:
-   Starting with Android 11 and strengthened in Android 14 (`FOREGROUND_SERVICE_MICROPHONE`), the Android OS strictly prohibits third-party background applications from capturing microphone audio unless running as a foreground service with a visible notification.
-2. **Microphone Privacy Indicators**:
-   Android 12+ displays a system-level green microphone dot whenever any app accesses the microphone.
-3. **Doze Mode & Screen-Off Microphone Silencing**:
-   When an Android device screen is locked and remains idle, the operating system enters **Doze Mode**. Android kernels actively suspend or silence background audio recording streams to protect user privacy and prevent battery drain.
-4. **Hardware DSP / Sound Trigger HAL**:
-   Always-on, battery-efficient hotword detection (such as *"Hey Google"*) relies on low-power hardware Digital Signal Processors (DSP) integrated into the device SoC. Third-party applications cannot access this hardware layer unless they are granted the privileged System Assistant role (`RoleManager.ROLE_ASSISTANT`) and OEM system image integration.
-
-### Current implementation:
-- **Foreground-Service Demo**: The app includes a foreground-service lifecycle demonstration, but it does not capture audio or detect a wake word. The manifest does not declare a microphone foreground-service type.
-- **Persistent Notification**: When enabled, the OS displays an ongoing notification that explicitly says wake-word detection is not implemented.
-- **Clear Controls**: The user can stop the service through the in-app switch or notification action.
-- **Push-to-Talk Fallback**: Because OS battery savers and OEM task killers (e.g. Samsung OneUI, Xiaomi MIUI) will eventually suspend continuous background microphone streaming when locked, **push-to-talk in the app is maintained as the primary, reliable, zero-battery-drain interface**.
-
----
+### Behavior and limitations
+- Wake-word inference is local and does not upload microphone audio. Porcupine may require network access to validate its AccessKey when the engine initializes.
+- When Hey Max is detected, tap the service notification to open the app and begin command speech recognition. This explicit tap is used instead of unexpectedly launching an activity from the background.
+- Command transcription still uses Android `SpeechRecognizer`, which may rely on the selected speech-recognition provider and may require internet.
+- The service pauses wake-word capture while a command is being handled and while a sensitive action awaits confirmation. It re-arms after the response completes if the service remains enabled.
+- Android requires microphone runtime permission and a user-started microphone foreground service with a persistent notification. Force-stop, permission revocation, battery restrictions, or OEM policies can stop or restrict background operation. This is not privileged hardware-DSP integration and is not guaranteed to survive every screen-off/Doze condition.
+- Sensitive actions continue to use the existing confirmation UI; the wake-word engine does not bypass command parsing, action allowlists, or confirmations.
 
 ## 5. Required Android Permissions
 
@@ -139,7 +134,7 @@ D:\Automation\VA\
 │   │   │   │   │   ├── SpeechRecognizerManager.kt # Native SpeechRecognizer wrapper
 │   │   │   │   │   └── TextToSpeechManager.kt     # Native TextToSpeech manager
 │   │   │   │   ├── service/
-│   │   │   │   │   ├── VoiceAssistantForegroundService.kt # Foreground-service lifecycle demo
+│   │   │   │   │   ├── VoiceAssistantForegroundService.kt # Porcupine offline wake-word foreground service
 │   │   │   │   │   └── StopServiceReceiver.kt             # Notification Stop button receiver
 │   │   │   │   └── ui/
 │   │   │   │       ├── MainViewModel.kt        # StateFlow & business logic orchestration
