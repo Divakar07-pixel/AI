@@ -54,7 +54,7 @@ To safeguard your device and personal data, the assistant detects sensitive inte
 
 ---
 
-## 4. Locked-Screen Wake-Word Investigation & Limitations
+## 4. Background Wake-Word Status & Android Limitations
 
 ### The Technical Reality on Modern Android (API 30+ / Android 11, 12, 13, 14, 15)
 
@@ -69,8 +69,8 @@ The requirement to support a user-enabled wake-word mode when the device is lock
 4. **Hardware DSP / Sound Trigger HAL**:
    Always-on, battery-efficient hotword detection (such as *"Hey Google"*) relies on low-power hardware Digital Signal Processors (DSP) integrated into the device SoC. Third-party applications cannot access this hardware layer unless they are granted the privileged System Assistant role (`RoleManager.ROLE_ASSISTANT`) and OEM system image integration.
 
-### Our Compliant Implementation:
-- **Foreground-Service Demo**: The app includes a foreground-service lifecycle demonstration, but it does not capture audio or detect a wake word.
+### Current implementation:
+- **Foreground-Service Demo**: The app includes a foreground-service lifecycle demonstration, but it does not capture audio or detect a wake word. The manifest does not declare a microphone foreground-service type.
 - **Persistent Notification**: When enabled, the OS displays an ongoing notification that explicitly says wake-word detection is not implemented.
 - **Clear Controls**: The user can stop the service through the in-app switch or notification action.
 - **Push-to-Talk Fallback**: Because OS battery savers and OEM task killers (e.g. Samsung OneUI, Xiaomi MIUI) will eventually suspend continuous background microphone streaming when locked, **push-to-talk in the app is maintained as the primary, reliable, zero-battery-drain interface**.
@@ -111,7 +111,7 @@ D:\Automation\VA\
 │   │   │   │   │   ├── SpeechRecognizerManager.kt # Native SpeechRecognizer wrapper
 │   │   │   │   │   └── TextToSpeechManager.kt     # Native TextToSpeech manager
 │   │   │   │   ├── service/
-│   │   │   │   │   ├── VoiceAssistantForegroundService.kt # Android 14 mic foreground service
+│   │   │   │   │   ├── VoiceAssistantForegroundService.kt # Foreground-service lifecycle demo
 │   │   │   │   │   └── StopServiceReceiver.kt             # Notification Stop button receiver
 │   │   │   │   └── ui/
 │   │   │   │       ├── MainViewModel.kt        # StateFlow & business logic orchestration
@@ -181,7 +181,7 @@ Open a terminal in `D:\Automation\VA` and execute:
   ```
 - **macOS / Linux**:
   ```bash
-  ./gradlew assembleDebug
+  gradle assembleDebug
   ```
 
 ---
