@@ -16,6 +16,7 @@
 
     <!-- Foreground Service permissions -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
     <!-- Permission to set alarms and timers via standard AlarmClock intents -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
@@ -77,10 +78,11 @@
             </intent-filter>
         </activity>
 
-        <!-- Foreground-service lifecycle demo; no microphone capture or wake-word detection. -->
+        <!-- Explicitly user-started foreground microphone service for offline wake-word detection. -->
         <service
             android:name=".service.VoiceAssistantForegroundService"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
 
         <!-- Optional device-lock capability; Android requires explicit user consent. -->
         <receiver
