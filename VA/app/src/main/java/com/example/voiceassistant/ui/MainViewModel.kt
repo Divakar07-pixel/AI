@@ -293,8 +293,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 context.startService(serviceIntent)
             }
         } else {
-            // Send the explicit stop action so the service releases its wake lock and notification.
-            context.startService(serviceIntent)
+            context.stopService(serviceIntent)
         }
     }
 
