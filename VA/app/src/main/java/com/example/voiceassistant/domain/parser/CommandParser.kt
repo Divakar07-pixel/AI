@@ -133,10 +133,10 @@ class CommandParser(
         // Handle combined WhatsApp + message requests before the generic app-launch parser.
         // Speech recognition may render WhatsApp as "what's app" or "whats app".
         Regex(
-            "^(?:open\\s+)?(?:whats\\s*app|what'?s\\s*app|whatsapp)\\s+and\\s+send\\s+(?:a\\s+)?(?:message|text)\\s+to\\s+(.+?)\\s+(?:saying|that|content\\s+is|message\\s+is)\\s+(.+)$",
+            "^(?:(?:open|launch|start)\\s+)?(?:app\\s+)?(?:whats\\s*app|what'?s\\s*app|whatsapp)\\s+(?:and\\s+)?send\\s+(?:a\\s+)?(?:message|text)\\s+to\\s+(.+?)(?:\\s*,\\s*|\\s+)(?:saying|that|content\\s+is|message\\s+is)\\s+(.+)$",
             RegexOption.IGNORE_CASE
         ).matchEntire(original)?.let {
-            return "send whatsapp message to ${it.groupValues[1].trim()} saying ${it.groupValues[2].trim()}"
+            return "send whatsapp message to ${it.groupValues[1].trim().trimEnd(',', ';', ':').trim()} saying ${it.groupValues[2].trim()}"
         }
 
         Regex("^(.+?)\\s+ku\\s+(?:message|sms)\\s+anuppu\\s+(.+)$", RegexOption.IGNORE_CASE)
