@@ -31,6 +31,13 @@ class CommandParser(
             .replace(Regex("[.,?!]"), "")
             .replace(Regex("\\s+"), " ")
             .trim()
+            .let { phrase ->
+                when (phrase) {
+                    "aama", "ama", "aamam", "seri", "sari", "ok pannu", "pannunga" -> "yes"
+                    "illa", "vendam", "vendaam", "cancel pannu", "niruthu" -> "no"
+                    else -> phrase
+                }
+            }
 
         // Exact phrases only: "yes, but no" must never confirm an action.
         val positiveTokens = setOf(
