@@ -1,0 +1,96 @@
+<Window x:Class="Jarvis.Windows.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="J.A.R.V.I.S. Desktop"
+        Width="1120" Height="760" MinWidth="760" MinHeight="560"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource NightBrush}"
+        Foreground="White"
+        Loaded="Window_Loaded"
+        Closed="Window_Closed">
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,18">
+            <StackPanel DockPanel.Dock="Left">
+                <TextBlock Text="J.A.R.V.I.S." FontSize="27" FontWeight="Black" />
+                <TextBlock Text="WINDOWS DESKTOP ASSISTANT" FontSize="10" Foreground="{StaticResource MutedBrush}" Margin="1,3,0,0" />
+            </StackPanel>
+            <Border DockPanel.Dock="Right" Background="#102D30" BorderBrush="#285B61" BorderThickness="1" CornerRadius="14" Padding="12,7" VerticalAlignment="Center">
+                <TextBlock x:Name="StatusText" Text="Ready • local commands only" Foreground="{StaticResource CyanBrush}" FontSize="11" />
+            </Border>
+        </DockPanel>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="330" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="{StaticResource PanelBrush}" BorderBrush="#24314A" BorderThickness="1" CornerRadius="22" Padding="18">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="VOICE CONTROL" FontSize="11" FontWeight="Bold" Foreground="{StaticResource MutedBrush}" />
+                        <Grid Height="150" Margin="0,8,0,0">
+                            <Ellipse Width="132" Height="132" Fill="#16314A" Stroke="{StaticResource CyanBrush}" StrokeThickness="1.5" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Ellipse Width="92" Height="92" Fill="#172542" Stroke="{StaticResource VioletBrush}" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <TextBlock Text="〰" FontSize="48" Foreground="{StaticResource CyanBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
+                        <TextBlock Text="Ask Jarvis" FontSize="21" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        <TextBlock Text="Voice recognition uses an installed Windows speech engine when available." TextWrapping="Wrap" TextAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="8,5,8,12" />
+
+                        <WrapPanel HorizontalAlignment="Center">
+                            <Button x:Name="ListenButton" Content="Start listening" Click="ListenButton_Click" />
+                            <Button Content="Stop listening" Background="#26334A" Foreground="White" Click="StopButton_Click" />
+                        </WrapPanel>
+
+                        <TextBlock Text="TYPE A COMMAND" FontSize="10" FontWeight="Bold" Foreground="{StaticResource MutedBrush}" Margin="0,18,0,6" />
+                        <TextBox x:Name="CommandInput" KeyDown="CommandInput_KeyDown" ToolTip="Example: open notepad" />
+                        <Button Content="Run command" Margin="0,8,0,0" HorizontalAlignment="Stretch" Click="SendButton_Click" />
+
+                        <TextBlock Text="QUICK COMMANDS" FontSize="10" FontWeight="Bold" Foreground="{StaticResource MutedBrush}" Margin="0,18,0,6" />
+                        <WrapPanel>
+                            <Button Tag="What time is it?" Content="Time" Click="Suggestion_Click" />
+                            <Button Tag="What is today's date?" Content="Date" Click="Suggestion_Click" />
+                            <Button Tag="Open Notepad" Content="Notepad" Click="Suggestion_Click" />
+                            <Button Tag="Open Calculator" Content="Calculator" Click="Suggestion_Click" />
+                            <Button Tag="Open File Explorer" Content="Explorer" Click="Suggestion_Click" />
+                            <Button Tag="Open Settings" Content="Settings" Click="Suggestion_Click" />
+                            <Button Tag="Open Browser" Content="Browser" Click="Suggestion_Click" />
+                        </WrapPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <Border Grid.Column="2" Background="{StaticResource PanelBrush}" BorderBrush="#24314A" BorderThickness="1" CornerRadius="22" Padding="18">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <DockPanel Grid.Row="0" Margin="0,0,0,12">
+                        <TextBlock Text="CONVERSATION" FontSize="11" FontWeight="Bold" />
+                        <TextBlock x:Name="MessageCountText" Text="0 messages" DockPanel.Dock="Right" Foreground="{StaticResource MutedBrush}" FontSize="10" />
+                    </DockPanel>
+                    <TextBox x:Name="TranscriptBox" Grid.Row="1" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                             Background="#0B1222" BorderBrush="#202E46" FontFamily="Consolas" FontSize="13" />
+                    <Border Grid.Row="2" Background="#172132" CornerRadius="12" Padding="12" Margin="0,12,0,0">
+                        <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource MutedBrush}">
+                            Windows commands run locally through a fixed allowlist. Phone control is not connected yet. Pairing Android will require a secure, user-approved connection; this client does not expose an unauthenticated network listener or run arbitrary shell commands.
+                        </TextBlock>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <TextBlock Grid.Row="2" Margin="2,12,2,0" Text="Privacy: microphone is used only after you press Start listening. Unsupported and sensitive commands are not executed automatically."
+                   Foreground="{StaticResource MutedBrush}" FontSize="10" TextWrapping="Wrap" />
+    </Grid>
+</Window>
