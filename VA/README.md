@@ -1,6 +1,6 @@
-# Voice Assistant (Android Native)
+# J.A.R.V.I.S. Assistant (Android + Windows Companion)
 
-A reliable, privacy-first native voice assistant for Android phones built in **Kotlin** using **Jetpack Compose** and **Material 3**.
+The Android app is built in **Kotlin**, **Jetpack Compose**, and **Material 3**. A separate starter Windows desktop client lives in [WindowsCompanion](../WindowsCompanion/README.md). The Android and Windows clients currently work independently; remote Windows-to-Android commands are not yet connected.
 
 ---
 
