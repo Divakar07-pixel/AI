@@ -1,30 +1,20 @@
-# Hey Max offline wake-word setup
+# Hey Jarvis offline wake-word setup
 
-This project integrates Picovoice Porcupine in a user-started Android microphone foreground service. The wake phrase is **Hey Max**. The source code intentionally does not include the proprietary custom `.ppn` model or your account AccessKey.
+The Android foreground microphone service uses the open-source openWakeWord Android Kotlin library and its pretrained **Hey Jarvis** classifier. Wake-word inference runs on the phone and does not require a Picovoice account, AccessKey, or paid API.
 
-## 1. Create the Android wake-word model
+## 1. Model setup
 
-1. Create/sign in to an account at [Picovoice Console](https://console.picovoice.ai/).
-2. Open **Porcupine** and create a custom wake word with the phrase exactly **Hey Max**.
-3. Select **English** and the **Android** platform, then train and download the Android `.ppn` file.
-4. Put the downloaded file in this exact path:
-   `VA/app/src/main/assets/Hey-Max_android.ppn`
-   Create the `assets` directory if it does not exist. If Console gives the file a different name, rename it to `Hey-Max_android.ppn`.
-5. Do not use a model trained for another platform. Custom Porcupine models are platform-specific.
+No manual model download or API key is required. The Gradle build downloads these public openWakeWord v0.5.1 ONNX assets into the generated assets directory and packages them into the app:
 
-## 2. Configure the AccessKey locally
+- `hey_jarvis_v0.1.onnx` — the Hey Jarvis wake-word classifier
+- `melspectrogram.onnx` — audio feature extraction
+- `embedding_model.onnx` — speech embedding model
 
-1. In Picovoice Console, copy your **AccessKey**.
-2. Open `VA/local.properties` (create it if missing) and add this line, keeping any existing Android SDK or Supabase properties:
+The first build needs internet access to fetch the files. Keep the generated files under `VA/app/build/generated/openWakeWordAssets` if you want to rebuild without downloading them again. A clean build may download them again. No credential or extra local.properties entry is needed for wake-word detection.
 
-   ```properties
-   PICOVOICE_ACCESS_KEY=paste_your_picovoice_access_key_here
-   ```
+The Android library is published as `xyz.rementia:openwakeword:0.1.5` and is licensed Apache-2.0. The upstream openWakeWord pretrained models have separate model licensing/attribution terms (CC BY-NC-SA 4.0 for the pretrained models in v0.5.1); review those terms before redistributing or using them commercially.
 
-3. Do not commit `local.properties` or paste the key into source code. The project .gitignore already excludes this file.
-4. Gradle injects this value into `BuildConfig` for local builds. **Important:** a key embedded in a client APK can potentially be extracted; treat it as a client SDK credential and review Picovoice account terms/usage limits before distributing the APK.
-
-## 3. Build and run
+## 2. Build and install
 
 From PowerShell:
 
@@ -39,20 +29,18 @@ Then install:
 & "F:\Downloads\platform-tools\adb.exe" install -r ".\app\build\outputs\apk\debug\app-debug.apk"
 ```
 
-Grant microphone permission and notification permission when prompted. Open Voice Assistant and enable **Hey Max offline wake word** while the app is visible. Android requires the user to start a microphone foreground service from an allowed app state; the ongoing notification and Stop action are intentional.
+Grant microphone permission and notification permission when prompted. Open Voice Assistant and enable **Hey Jarvis offline wake word** while the app is visible. Android requires the user to start a microphone foreground service from an allowed app state; the ongoing notification and Stop action are intentional.
 
-## 4. How it behaves
+## 3. How it behaves
 
-- Porcupine performs wake-word inference on-device; raw microphone audio is not uploaded by the wake-word detector.
-- Porcupine AccessKey validation may need internet when the engine initializes. Once initialized, wake-word detection itself is local.
-- When the phrase is detected, the notification changes to **Hey Max heard you**. Tap that notification to open the app and start command speech recognition. This notification tap is deliberate because background activity launches and background speech recognition are restricted across Android versions.
-- After the command response completes, the wake-word detector is re-armed if the service remains enabled. While a sensitive action awaits confirmation, wake-word capture stays paused so it cannot compete for microphone input. Existing confirmation UI remains authoritative.
+- The Hey Jarvis classifier runs locally after the models are packaged into the app; wake-word audio is not sent to a wake-word cloud service.
+- When the phrase is detected, the notification changes to **Hey Jarvis heard you**. Tap that notification to open the app and start command speech recognition. The notification tap is deliberate because background activity launches and background speech recognition are restricted across Android versions.
+- After the command response completes, the wake-word detector is re-armed if the service remains enabled. While a sensitive action awaits confirmation, wake-word capture stays paused so it cannot compete for microphone input. Existing confirmation UI and local action allowlists remain authoritative.
 - The command speech recognizer is Android's `SpeechRecognizer`, which may use the device's selected recognition provider and may require internet. Only wake-word detection is guaranteed to run locally.
 - Android may stop or restrict the service after force-stop, permission revocation, battery restrictions, or device/OEM policy. This is not equivalent to privileged, hardware-DSP “Hey Google” always-on support.
 
 ## Troubleshooting
 
-- **“add PICOVOICE_ACCESS_KEY”**: check the property name in `VA/local.properties`, then rebuild.
-- **“add Hey-Max_android.ppn”**: verify the model is in `VA/app/src/main/assets/` and the exact filename matches.
-- **Porcupine initialization failed**: verify the key is valid, the model was trained for Android, and the device can reach Picovoice for key validation.
+- **Model download fails**: build with internet access and rerun `assembleDebug`. Check whether GitHub release downloads are blocked by your network.
+- **Wake-word engine fails**: verify microphone permission is granted and inspect Logcat for the `HeyJarvisWakeWord` tag.
 - **No notification**: check Android notification settings for Voice Assistant. The service uses a persistent notification by design.
