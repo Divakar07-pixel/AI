@@ -1,9 +1,9 @@
 <resources>
     <string name="app_name">Voice Assistant</string>
     <string name="listening_service_channel_name">Voice Assistant Service</string>
-    <string name="listening_service_channel_desc">Persistent notification while offline Hey Jarvis wake-word detection is enabled.</string>
-    <string name="service_listening_title">Hey Jarvis is enabled</string>
-    <string name="service_listening_text">Listening locally for Hey Jarvis.</string>
+    <string name="listening_service_channel_desc">Lifecycle demonstration only; wake-word detection is not configured.</string>
+    <string name="service_listening_title">Hey Jarvis detector is pending</string>
+    <string name="service_listening_text">Wake-word detection is not configured. Manual microphone input remains available.</string>
     <string name="service_stop_action">Stop</string>
     <string name="device_admin_description">Optional permission to lock this phone when you explicitly say “lock my phone”. This does not unlock the phone or bypass its screen lock.</string>
 </resources>
