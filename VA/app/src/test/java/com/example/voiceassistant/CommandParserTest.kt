@@ -147,10 +147,19 @@ class CommandParserTest {
 
     @Test
     fun openPhoneAndCallContactRequiresConfirmation() {
-        val action = parser.parseCommand("open phone and call Divakar")
-        assertTrue("Expected RequireConfirmation, got: $action", action is AssistantAction.RequireConfirmation)
-        val call = (action as AssistantAction.RequireConfirmation).action as SensitiveAction.MakePhoneCall
-        assertEquals("Divakar", call.contactOrNumber)
+        val phrases = listOf(
+            "open phone and call Divakar",
+            "open Phone call Divakar",
+            "open the phone app then call Divakar",
+            "launch dialer, call Divakar",
+            "phone and dial Divakar"
+        )
+        for (phrase in phrases) {
+            val action = parser.parseCommand(phrase)
+            assertTrue("Expected RequireConfirmation for '$phrase', got: $action", action is AssistantAction.RequireConfirmation)
+            val call = (action as AssistantAction.RequireConfirmation).action as SensitiveAction.MakePhoneCall
+            assertEquals("Divakar", call.contactOrNumber)
+        }
     }
 
     @Test
