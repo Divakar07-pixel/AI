@@ -10,9 +10,9 @@ The **Voice Assistant** is built as a grounded, dependable prototype for your An
 
 ### Core Principles
 - **No Grand Claims**: The assistant does not claim to control every app or perform arbitrary actions. It strictly adheres to an explicit, safe allowlist.
-- **Push-to-Talk Primary**: Immediate, reliable voice control when you open the app.
+- **User-enabled wake word**: The optional Hey Jarvis mode uses openWakeWord with a pretrained ONNX classifier in a microphone foreground service. Gradle downloads the public models during the first build; no API key or paid service is required. See `HEY_MAX_SETUP.md`.
 - **Explicit Confirmation Gates**: Asks for confirmation before sending messages, placing calls, deleting data, making purchases, or changing security settings.
-- **Total Privacy**: Audio is **never recorded or stored**. In-memory audio buffers stream strictly to the native Android speech recognizer. No API keys are required or stored in the app.
+- **Privacy-aware design**: This app does not write microphone audio to files. Android's selected speech-recognition provider may process audio according to that provider's own policies. Optional AI chat sends text conversation history to the configured Supabase Edge Function.
 - **Zero Stealth Operations**: No arbitrary shell scripts, no accessibility service taps, and no permission bypasses.
 - **Emergency Stop / Cancel**: Visible controls to immediately halt speech recognition, silence spoken audio, or abort pending actions.
 
@@ -25,10 +25,38 @@ The **Voice Assistant** is built as a grounded, dependable prototype for your An
 | **Time & Date** | *"What time is it?"*, *"Tell me the time"*, *"What is today's date?"*, *"What day is it?"* | In-app speech output (`TextToSpeech`) + Visual chat transcript |
 | **Timers** | *"Set a timer for 5 minutes"*, *"Timer for 30 seconds"*, *"Set timer for 1 hour"* | `AlarmClock.ACTION_SET_TIMER` |
 | **Alarms** | *"Set an alarm for 7:30 AM"*, *"Wake me up at 6 AM"*, *"Alarm for 8 PM"* | `AlarmClock.ACTION_SET_ALARM` |
-| **Open Apps** | *"Open Camera"*, *"Open YouTube"*, *"Launch Chrome"*, *"Open Maps"*, *"Open Calculator"*, *"Open Clock"*, *"Open Calendar"* | `MediaStore.ACTION_IMAGE_CAPTURE`, `PackageManager.getLaunchIntentForPackage()` |
+| **Open Apps** | *"Open Camera"*, *"Open YouTube"*, *"Open Instagram"*, *"Open WhatsApp"*, or *"Open <installed app name>"* | Matches the installed launcher app label and opens its launch activity; exact names are preferred over partial matches. |
+| **Tanglish** | *"time enna"*, *"innaiku date enna"*, *"camera open pannu"*, *"Amma ku call pannu"*, *"phone lock pannu"* | Local normalization maps supported Tanglish patterns to the same allowlisted actions; calls/messages still require confirmation. |
+| **Lock Phone** | *"Lock my phone"* or *"phone lock pannu"* | Android DevicePolicyManager force-lock after the user explicitly enables this app as a device administrator. This locks only; it cannot unlock or bypass screen security. |
 | **Settings** | *"Open Wi-Fi settings"*, *"Open Bluetooth"*, *"Open Display settings"*, *"Open Battery settings"*, *"Open Sound settings"*, *"Open App settings"* | `Settings.ACTION_WIFI_SETTINGS`, `Settings.ACTION_BLUETOOTH_SETTINGS`, `Settings.ACTION_DISPLAY_SETTINGS`, `Settings.ACTION_SOUND_SETTINGS`, etc. |
 
 ---
+
+## 2.1 Tanglish and device protection
+
+- The recognizer prefers **English (India)** on non-Tamil device locales to improve English/Tanglish transcription; it keeps **Tamil (India)** when Android's device language is Tamil. Actual transcription quality depends on the speech-recognition provider and its installed language packs.
+- Supported local Tanglish patterns include `time enna`, `ippo time enna`, `innaiku date enna`, `camera open pannu`, `<contact> ku call pannu`, and `phone lock pannu`. This is a starter phrase set, not a promise to understand every Tamil dialect or every mixed-language sentence.
+- To use phone locking, issue `lock my phone` while the assistant is available. Android will show its device-administrator consent screen; review it and enable the permission yourself. Once enabled, the command can lock the phone. To revoke it, open Android Settings and deactivate Voice Assistant under device-admin apps.
+- The assistant **cannot unlock the phone**, read or bypass the PIN/password, defeat fingerprint/face authentication, silently toggle protected system settings, or automate arbitrary actions inside every app. Android requires explicit user authentication and/or app-specific APIs for those operations.
+- Opening an installed app is supported when its launcher activity is visible to Android and its spoken name matches the app label. Apps without launch activities, work-profile restrictions, OEM restrictions, and protected in-app actions may not be available.
+
+## 2.2 Hybrid adaptive command understanding
+
+When the local parser cannot recognize a phrase and AI is configured, the app can ask the Supabase Edge Function to normalize the request into one canonical command supported by the local allowlist.
+
+- **Local first:** commands recognized locally do not require a network round-trip.
+- **AI-assisted normalization:** unfamiliar phrasing can be mapped to an existing capability, including supported alarm, timer, app-launch, search, and contact/message intents.
+- **Local validation remains authoritative:** the app reparses the returned command through `CommandParser`. AI output is never executed directly. Sensitive results still enter the existing confirmation UI.
+- **Chat fallback:** if no supported command can be produced, the assistant can answer conversationally using the configured AI service.
+- **Privacy:** when this fallback is used, the spoken text may be sent to the configured Supabase Edge Function and AI provider. Do not include secrets in voice commands.
+
+Configure `SUPABASE_URL` and `SUPABASE_ANON_KEY` in ignored `VA/local.properties`; enable Supabase anonymous sign-in; configure `OPENAI_API_KEY` as a Supabase secret; then deploy the updated function from the `VA` directory with `supabase functions deploy assistant-chat`. The Android app does not contain the provider secret.
+
+AI normalization is not a guarantee that every phrasing will work. It can only map to the capabilities already implemented in the local parser/executor. New capabilities still require a reviewed implementation and tests.
+
+## 2.3 Voice-driven code editing status
+
+The app does **not yet** have a secure code-editing agent connected to the Windows checkout or a cloud repository. Requests such as "change the greeting" must not be treated as ordinary phone commands. A future developer mode needs explicit repository authorization, a patch preview, approval before writes, isolated builds/tests, and a reviewable branch/commit. It must never apply arbitrary shell commands or source changes merely because a model suggested them.
 
 ## 3. Mandatory Confirmation for Sensitive Actions
 
@@ -54,28 +82,22 @@ To safeguard your device and personal data, the assistant detects sensitive inte
 
 ---
 
-## 4. Locked-Screen Wake-Word Investigation & Limitations
+## 4. Hey Jarvis Offline Wake-Word Mode & Android Limitations
 
-### The Technical Reality on Modern Android (API 30+ / Android 11, 12, 13, 14, 15)
+The user can enable Hey Jarvis from the app while it is visible. openWakeWord detects the wake phrase locally in a foreground microphone service and shows a persistent notification with a Stop action.
 
-The requirement to support a user-enabled wake-word mode when the device is locked was investigated against Android platform security and battery specifications:
+### Required setup
+- No Picovoice account, AccessKey, or custom model is required.
+- The first Gradle build downloads `hey_jarvis_v0.1.onnx`, `melspectrogram.onnx`, and `embedding_model.onnx` from the public openWakeWord v0.5.1 release and packages them as app assets.
+- The first build needs internet access. See [HEY_MAX_SETUP.md](HEY_MAX_SETUP.md) for details and model licensing notes.
 
-1. **Background Microphone Restrictions**:
-   Starting with Android 11 and strengthened in Android 14 (`FOREGROUND_SERVICE_MICROPHONE`), the Android OS strictly prohibits third-party background applications from capturing microphone audio unless running as a foreground service with a visible notification.
-2. **Microphone Privacy Indicators**:
-   Android 12+ displays a system-level green microphone dot whenever any app accesses the microphone.
-3. **Doze Mode & Screen-Off Microphone Silencing**:
-   When an Android device screen is locked and remains idle, the operating system enters **Doze Mode**. Android kernels actively suspend or silence background audio recording streams to protect user privacy and prevent battery drain.
-4. **Hardware DSP / Sound Trigger HAL**:
-   Always-on, battery-efficient hotword detection (such as *"Hey Google"*) relies on low-power hardware Digital Signal Processors (DSP) integrated into the device SoC. Third-party applications cannot access this hardware layer unless they are granted the privileged System Assistant role (`RoleManager.ROLE_ASSISTANT`) and OEM system image integration.
-
-### Our Compliant Implementation:
-- **User-Started Foreground Service**: The app includes `VoiceAssistantForegroundService` configured with `android:foregroundServiceType="microphone"`.
-- **Persistent Notification**: When enabled, the OS displays an ongoing notification (*"Voice Assistant Active - Monitoring wake word"*).
-- **Clear Controls**: The user can stop the service instantly either via the in-app switch or by tapping the **Stop** action button directly in the notification shade.
-- **Push-to-Talk Fallback**: Because OS battery savers and OEM task killers (e.g. Samsung OneUI, Xiaomi MIUI) will eventually suspend continuous background microphone streaming when locked, **push-to-talk in the app is maintained as the primary, reliable, zero-battery-drain interface**.
-
----
+### Behavior and limitations
+- Wake-word inference runs locally after the models are packaged; the wake-word detector does not upload microphone audio.
+- When Hey Jarvis is detected, tap the service notification to open the app and begin command speech recognition. This explicit tap is used instead of unexpectedly launching an activity from the background.
+- Command transcription still uses Android `SpeechRecognizer`, which may rely on the selected speech-recognition provider and may require internet.
+- The service pauses wake-word capture while a command is being handled and while a sensitive action awaits confirmation. It re-arms after the response completes if the service remains enabled.
+- Android requires microphone runtime permission and a user-started microphone foreground service with a persistent notification. Force-stop, permission revocation, battery restrictions, or OEM policies can stop or restrict background operation. This is not privileged hardware-DSP integration and is not guaranteed to survive every screen-off/Doze condition.
+- Sensitive actions continue to use the existing confirmation UI; the wake-word engine does not bypass command parsing, action allowlists, or confirmations.
 
 ## 5. Required Android Permissions
 
@@ -111,7 +133,7 @@ D:\Automation\VA\
 │   │   │   │   │   ├── SpeechRecognizerManager.kt # Native SpeechRecognizer wrapper
 │   │   │   │   │   └── TextToSpeechManager.kt     # Native TextToSpeech manager
 │   │   │   │   ├── service/
-│   │   │   │   │   ├── VoiceAssistantForegroundService.kt # Android 14 mic foreground service
+│   │   │   │   │   ├── VoiceAssistantForegroundService.kt # openWakeWord offline wake-word foreground service
 │   │   │   │   │   └── StopServiceReceiver.kt             # Notification Stop button receiver
 │   │   │   │   └── ui/
 │   │   │   │       ├── MainViewModel.kt        # StateFlow & business logic orchestration
@@ -181,7 +203,7 @@ Open a terminal in `D:\Automation\VA` and execute:
   ```
 - **macOS / Linux**:
   ```bash
-  ./gradlew assembleDebug
+  gradle assembleDebug
   ```
 
 ---
@@ -231,3 +253,52 @@ The project includes unit tests verifying:
 2. **Offline Local First**: The allowlist actions (time, date, app launching, timers, alarms, and settings) run entirely on-device using local Android Intents.
 3. **No Hidden Background Activity**: The app does not attempt to inspect screen contents, abuse accessibility services, simulate touch events, or execute arbitrary shell commands.
 4. **Third-Party Integrations**: Laptop or network companion integration is intentionally excluded from Version 1 to maintain a self-contained, auditable native Android codebase.
+
+
+## 7. Optional AI conversation setup
+
+General questions that are not recognized as device commands are routed to an AI chat endpoint. Device commands are still parsed and handled locally first; the AI response cannot execute device actions.
+
+The included implementation uses a Supabase Edge Function and OpenAI-compatible chat completion. **The provider API key is stored only as a Supabase secret, never in the Android app.**
+
+### Configure the Android app
+
+In `VA/local.properties` (this file is machine-local and must not be committed), add:
+
+```properties
+sdk.dir=C\\:\\Users\\YOUR_USER\\AppData\\Local\\Android\\Sdk
+SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+SUPABASE_ANON_KEY=YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY
+```
+
+Keep your existing `sdk.dir` value if it is already present; add only the two Supabase properties. The Supabase anon/publishable key is designed for client use with appropriate project security. **Do not add `OPENAI_API_KEY` to this file or to the APK.**
+
+### Configure Supabase
+
+1. Create or select a Supabase project.
+2. Enable anonymous sign-ins in **Authentication → Sign In / Providers**.
+3. Open a terminal in the `VA` folder (`cd VA`) and install the Supabase CLI. The repository already includes `supabase/config.toml` with JWT verification enabled for this function.
+4. Link the project: `supabase link --project-ref YOUR_PROJECT_REF`.
+5. Set the provider key as a server secret: `supabase secrets set OPENAI_API_KEY=your_provider_key`.
+6. Optionally set the model: `supabase secrets set OPENAI_MODEL=gpt-4o-mini`.
+7. Deploy the function from `VA`: `supabase functions deploy assistant-chat`. Keep JWT verification enabled so the function requires a valid Supabase session.
+8. Review Supabase Auth rate limits and usage monitoring before sharing the app publicly. Anonymous users can consume AI quota, so do not treat the endpoint as abuse-proof.
+
+The Android client signs in anonymously and calls `/functions/v1/assistant-chat`. If these settings are absent, the app continues to support local commands and explains that AI setup is missing.
+
+### Local tests
+
+From PowerShell in `F:\\VS Code\\AI-main\\VA` (adjust to your clone path), run:
+
+```powershell
+& "F:\\Downloads\\gradle-8.7\\bin\\gradle.bat" -p . testDebugUnitTest assembleDebug --no-daemon --stacktrace
+```
+
+The repository's Gradle wrapper JAR currently cannot load `GradleWrapperMain`, so the local command above uses a separately installed Gradle 8.7 distribution. The GitHub Actions workflow in `.github/workflows/android-ci.yml` also downloads Gradle 8.7 directly, runs unit tests, and assembles a debug APK for pushes and pull requests touching `VA/`.
+
+## 8. Known limitations
+
+- Wake-word inference uses a foreground microphone service and is subject to Android background execution and OEM battery restrictions.
+- AI conversation requires a configured Supabase project, anonymous auth, deployed Edge Function, and a server-side provider key.
+- AI replies are text-only. They do not execute Android actions. Supported commands continue through the local parser and explicit confirmation flow.
+- Speech recognition behavior and app/intent availability depend on the Android device and its configured services.

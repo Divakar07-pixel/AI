@@ -17,10 +17,13 @@ enum class SettingType {
  * Sensitive operations that require explicit user confirmation
  * before execution (voice "Confirm" or tapping the Confirm button).
  */
+enum class MessageChannel { SMS, WHATSAPP }
+
 sealed class SensitiveAction {
     data class SendMessage(
         val recipient: String,
-        val messageText: String
+        val messageText: String,
+        val channel: MessageChannel = MessageChannel.SMS
     ) : SensitiveAction()
 
     data class MakePhoneCall(
@@ -60,7 +63,9 @@ sealed class AssistantAction {
     data class SetAlarm(
         val hour: Int,
         val minute: Int,
-        val label: String = "Assistant Alarm"
+        val label: String = "Assistant Alarm",
+        /** 0 = today/next occurrence; 1 = tomorrow. */
+        val dayOffset: Int = 0
     ) : AssistantAction()
 
     // 5. Open Apps
@@ -74,6 +79,12 @@ sealed class AssistantAction {
         val settingType: SettingType,
         val displayName: String
     ) : AssistantAction()
+
+    // Search YouTube using the user's query, without requiring confirmation.
+    data class SearchYouTube(val query: String) : AssistantAction()
+
+    // Locks the device only after the user has explicitly enabled the device-admin capability.
+    object LockDevice : AssistantAction()
 
     // Sensitive action awaiting explicit user confirmation
     data class RequireConfirmation(

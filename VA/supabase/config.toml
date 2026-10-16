@@ -1,0 +1,4 @@
+project_id = "voice-assistant"
+
+[functions.assistant-chat]
+verify_jwt = true

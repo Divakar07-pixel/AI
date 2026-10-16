@@ -80,13 +80,13 @@ fun BackgroundWakeWordCard(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "Background Wake-Word Service",
+                            text = "Background Service (Experimental)",
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = if (isServiceRunning) "Foreground Service Active" else "Stopped (Push-to-talk mode)",
+                            text = if (isServiceRunning) "Service running — wake-word detection is not implemented" else "Stopped (push-to-talk available)",
                             fontSize = 12.sp,
                             color = if (isServiceRunning) AssistantPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
@@ -145,17 +145,15 @@ fun BackgroundWakeWordCard(
                         .padding(12.dp)
                 ) {
                     Text(
-                        text = "Why Always-On Wake Word Cannot Be Guaranteed on Android:",
+                        text = "Wake-word status and Android limitations:",
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "1. Privacy Protections: Android 12+ and 14+ strictly enforce mic indicator privacy rules and throttle background audio when the screen is locked.\n" +
-                                "2. Battery / Doze: Deep sleep suspends background CPU cycles to preserve battery life unless granted specialized system exemptions.\n" +
-                                "3. Hardware DSP: Low-power continuous listening (\"Hey Google\") requires privileged access to the device Sound Trigger HAL, restricted to the system assistant.\n\n" +
-                                "Recommendation: Push-to-talk in the app is the reliable, zero-battery-drain primary interface. Enabling this service displays a mandatory persistent notification.",
+                        text = "Wake-word detection is not implemented yet. This switch currently demonstrates the Android foreground-service lifecycle only; it does not listen to the microphone or detect a phrase.\n\n" +
+                                "Push-to-talk is the supported voice interface. A real wake-word detector would need an on-device model, explicit microphone handling, battery testing, and Android-version-specific validation.",
                         fontSize = 11.sp,
                         lineHeight = 16.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

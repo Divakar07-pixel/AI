@@ -1,6 +1,7 @@
 package com.example.voiceassistant
 
 import com.example.voiceassistant.domain.model.AssistantAction
+import com.example.voiceassistant.domain.model.MessageChannel
 import com.example.voiceassistant.domain.model.SensitiveAction
 import com.example.voiceassistant.domain.model.SettingType
 import com.example.voiceassistant.domain.parser.CommandParser
@@ -96,6 +97,16 @@ class CommandParserTest {
     }
 
     @Test
+    fun parsesSpokenAlarmWithSeparatedHourAndMinuteTomorrowMorning() {
+        val action = parser.parseCommand("set alarm on 5 40 tomorrow morning")
+        assertTrue("Expected SetAlarm, got: $action", action is AssistantAction.SetAlarm)
+        val alarm = action as AssistantAction.SetAlarm
+        assertEquals(5, alarm.hour)
+        assertEquals(40, alarm.minute)
+        assertEquals(1, alarm.dayOffset)
+    }
+
+    @Test
     fun testParseAlarmEvening() {
         val action = parser.parseCommand("set alarm for 8:15 pm")
         assertTrue(action is AssistantAction.SetAlarm)
@@ -132,6 +143,42 @@ class CommandParserTest {
 
         val maps = parser.parseCommand("open maps") as AssistantAction.OpenApp
         assertEquals("Google Maps", maps.appName)
+    }
+
+    @Test
+    fun openPhoneAndCallContactRequiresConfirmation() {
+        val action = parser.parseCommand("open phone and call Divakar")
+        assertTrue("Expected RequireConfirmation, got: $action", action is AssistantAction.RequireConfirmation)
+        val call = (action as AssistantAction.RequireConfirmation).action as SensitiveAction.MakePhoneCall
+        assertEquals("Divakar", call.contactOrNumber)
+    }
+
+    @Test
+    fun standalonePhoneCommandOpensPhoneApp() {
+        val action = parser.parseCommand("open phone")
+        assertTrue("Expected OpenApp, got: $action", action is AssistantAction.OpenApp)
+        assertEquals("Phone", (action as AssistantAction.OpenApp).appName)
+    }
+
+    @Test
+    fun standaloneWhatsAppCommandOpensWhatsApp() {
+        val action = parser.parseCommand("whatsapp")
+        assertTrue("Expected OpenApp, got: $action", action is AssistantAction.OpenApp)
+        assertEquals("WhatsApp", (action as AssistantAction.OpenApp).appName)
+    }
+
+    @Test
+    fun parsesYouTubeSearchWithOpenAndSearchPhrase() {
+        val action = parser.parseCommand("open youtube and search vj sidhu vlogs")
+        assertTrue("Expected SearchYouTube, got: $action", action is AssistantAction.SearchYouTube)
+        assertEquals("vj sidhu vlogs", (action as AssistantAction.SearchYouTube).query)
+    }
+
+    @Test
+    fun parsesSearchYouTubeForPhrase() {
+        val action = parser.parseCommand("search YouTube for cats")
+        assertTrue("Expected SearchYouTube, got: $action", action is AssistantAction.SearchYouTube)
+        assertEquals("cats", (action as AssistantAction.SearchYouTube).query)
     }
 
     // ==========================================
@@ -181,6 +228,36 @@ class CommandParserTest {
         val sendMsg = req.action as SensitiveAction.SendMessage
         assertEquals("John", sendMsg.recipient)
         assertEquals("Running late", sendMsg.messageText)
+    }
+
+    @Test
+    fun combinedWhatsAppMessageRequiresConfirmationAndPreservesText() {
+        val action = parser.parseCommand("Open WhatsApp and send message to Divakar, content is Hii")
+        assertTrue("Expected RequireConfirmation, got: $action", action is AssistantAction.RequireConfirmation)
+        val message = (action as AssistantAction.RequireConfirmation).action as SensitiveAction.SendMessage
+        assertEquals("Divakar", message.recipient)
+        assertEquals("Hii", message.messageText)
+        assertEquals(MessageChannel.WHATSAPP, message.channel)
+    }
+
+    @Test
+    fun combinedWhatsAppCommandAcceptsPastTenseSent() {
+        val action = parser.parseCommand("Open WhatsApp and sent a message to Divakar, content is hi")
+        assertTrue("Expected RequireConfirmation, got: $action", action is AssistantAction.RequireConfirmation)
+        val message = (action as AssistantAction.RequireConfirmation).action as SensitiveAction.SendMessage
+        assertEquals("Divakar", message.recipient)
+        assertEquals("hi", message.messageText)
+        assertEquals(MessageChannel.WHATSAPP, message.channel)
+    }
+
+    @Test
+    fun whatsappCommandWithAppPrefixAndNoSpaceAfterCommaIsParsed() {
+        val action = parser.parseCommand("app whatsapp send message to divakar,content is Hii")
+        assertTrue("Expected RequireConfirmation, got: $action", action is AssistantAction.RequireConfirmation)
+        val message = (action as AssistantAction.RequireConfirmation).action as SensitiveAction.SendMessage
+        assertEquals("divakar", message.recipient)
+        assertEquals("Hii", message.messageText)
+        assertEquals(MessageChannel.WHATSAPP, message.channel)
     }
 
     @Test
@@ -263,5 +340,94 @@ class CommandParserTest {
 
         val unknown2 = parser.parseCommand("")
         assertTrue(unknown2 is AssistantAction.Unknown)
+    }
+
+    @Test
+    fun testTimerRejectsZeroAndOutOfRangeDurations() {
+        assertTrue(parser.parseCommand("set a timer for 0 seconds") is AssistantAction.Unknown)
+        assertTrue(parser.parseCommand("set timer for 999999999 hours") is AssistantAction.Unknown)
+    }
+
+    @Test
+    fun testTimerRejectsUnrelatedTrailingText() {
+        assertTrue(parser.parseCommand("set a timer for 10 minutes and open camera") is AssistantAction.Unknown)
+    }
+
+    @Test
+    fun testAlarmRejectsInvalidTimeAndTrailingText() {
+        assertTrue(parser.parseCommand("set an alarm for 25:90") is AssistantAction.Unknown)
+        assertTrue(parser.parseCommand("set alarm for 7 am and call Mom") is AssistantAction.Unknown)
+    }
+
+    @Test
+    fun testTimeQueryRequiresSupportedWholePhrase() {
+        assertTrue(parser.parseCommand("what time should I leave") is AssistantAction.Unknown)
+    }
+
+    @Test
+    fun testConfirmationRejectsMixedOrAmbiguousPhrases() {
+        assertEquals(ConfirmationDecision.UNCLEAR, parser.parseConfirmationResponse("yes, but no"))
+        assertEquals(ConfirmationDecision.UNCLEAR, parser.parseConfirmationResponse("yes please cancel"))
+    }
+
+    @Test
+    fun testUnrelatedUseOfPinDoesNotTriggerSecurityConfirmation() {
+        assertTrue(parser.parseCommand("pin this message") is AssistantAction.Unknown)
+    }
+
+
+    @Test
+    fun tanglishTimeAndDateCommandsAreRecognized() {
+        assertTrue(parser.parseCommand("time enna") is AssistantAction.TellTime)
+        assertTrue(parser.parseCommand("ippo time enna") is AssistantAction.TellTime)
+        assertTrue(parser.parseCommand("innaiku date enna") is AssistantAction.TellDate)
+    }
+
+    @Test
+    fun tanglishAppAndCallCommandsAreNormalized() {
+        val app = parser.parseCommand("camera open pannu")
+        assertTrue(app is AssistantAction.OpenApp)
+        assertEquals("Camera", (app as AssistantAction.OpenApp).appName)
+
+        val call = parser.parseCommand("Amma ku call pannu")
+        assertTrue(call is AssistantAction.RequireConfirmation)
+        assertTrue((call as AssistantAction.RequireConfirmation).action is SensitiveAction.MakePhoneCall)
+        assertEquals("Amma", ((call.action) as SensitiveAction.MakePhoneCall).contactOrNumber)
+    }
+
+    @Test
+    fun arbitraryInstalledAppNamesCanBeRequested() {
+        val action = parser.parseCommand("open instagram")
+        assertTrue(action is AssistantAction.OpenApp)
+        assertEquals("Instagram", (action as AssistantAction.OpenApp).appName)
+    }
+
+    @Test
+    fun lockPhoneCommandUsesExplicitDeviceAdminPath() {
+        assertEquals(AssistantAction.LockDevice, parser.parseCommand("lock my phone"))
+        assertEquals(AssistantAction.LockDevice, parser.parseCommand("phone lock pannu"))
+    }
+
+    @Test
+    fun tanglishConfirmationWordsAreRecognized() {
+        assertEquals(ConfirmationDecision.CONFIRMED, parser.parseConfirmationResponse("aama"))
+        assertEquals(ConfirmationDecision.CONFIRMED, parser.parseConfirmationResponse("seri"))
+        assertEquals(ConfirmationDecision.CANCELLED, parser.parseConfirmationResponse("vendam"))
+    }
+
+    @Test
+    fun tanglishMessageRequiresConfirmationAndPreservesBodyCase() {
+        val action = parser.parseCommand("Amma ku message anuppu Naan 5 mani-ku varuven")
+        assertTrue(action is AssistantAction.RequireConfirmation)
+        val message = (action as AssistantAction.RequireConfirmation).action as SensitiveAction.SendMessage
+        assertEquals("Amma", message.recipient)
+        assertEquals("Naan 5 mani-ku varuven", message.messageText)
+    }
+
+    @Test
+    fun tanglishWifiToggleRequestOpensSettingsInsteadOfBypassingAndroid() {
+        val action = parser.parseCommand("wifi on pannu")
+        assertTrue(action is AssistantAction.OpenSetting)
+        assertEquals(SettingType.WIFI, (action as AssistantAction.OpenSetting).settingType)
     }
 }

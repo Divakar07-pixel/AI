@@ -42,7 +42,7 @@ class SpeechRecognizerManager(
                 override fun onBeginningOfSpeech() {}
 
                 override fun onRmsChanged(rmsdB: Float) {
-                    onRmsChanged(rmsdB)
+                    this@SpeechRecognizerManager.onRmsChanged(rmsdB)
                 }
 
                 override fun onBufferReceived(buffer: ByteArray?) {}
