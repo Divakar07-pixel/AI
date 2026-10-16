@@ -107,7 +107,7 @@ fun VoiceAssistantScreen(
             val medium = maxWidth >= 600.dp
 
             Column(Modifier.fillMaxSize()) {
-                Header(modifier = Modifier.fillMaxWidth().padding(horizontal = if (expanded) 28.dp else 18.dp))
+                Header(onPrivacyClick = { viewModel.openPrivacyDialog() }, modifier = Modifier.fillMaxWidth().padding(horizontal = if (expanded) 28.dp else 18.dp))
                 StatusLine(state = state, medium = medium)
 
                 Row(
@@ -211,7 +211,7 @@ fun VoiceAssistantScreen(
 }
 
 @Composable
-private fun Header(modifier: Modifier = Modifier) {
+private fun Header(onPrivacyClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(modifier = modifier.padding(top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier = Modifier
@@ -226,7 +226,7 @@ private fun Header(modifier: Modifier = Modifier) {
             Text("J.A.R.V.I.S.", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
             Text("PERSONAL AI ASSISTANT", color = Muted, fontSize = 9.sp, letterSpacing = 1.6.sp)
         }
-        Icon(Icons.Default.Info, contentDescription = "Jarvis information", tint = Muted, modifier = Modifier.size(22.dp).padding(end = 2.dp))
+        IconButton(onClick = onPrivacyClick) { Icon(Icons.Default.Info, contentDescription = "Privacy and app information", tint = Muted) }
     }
 }
 
