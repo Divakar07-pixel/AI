@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">Voice Assistant</string>
-    <string name="listening_service_channel_name">Voice Assistant Service</string>
+    <string name="app_name">Jarvis</string>
+    <string name="listening_service_channel_name">Jarvis Service</string>
     <string name="listening_service_channel_desc">Lifecycle demonstration only; wake-word detection is not configured.</string>
     <string name="service_listening_title">Hey Jarvis detector is pending</string>
     <string name="service_listening_text">Wake-word detection is not configured. Manual microphone input remains available.</string>
