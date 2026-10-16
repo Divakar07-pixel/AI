@@ -344,8 +344,8 @@ fun VoiceAssistantScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Hey Max offline wake word", color = Color(0xFFD8E7FF), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Enable, then say “Hey Max”; tap its notification to speak.", color = Muted, fontSize = 9.sp)
+                    Text("Hey Jarvis offline wake word", color = Color(0xFFD8E7FF), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Enable, then say “Hey Jarvis”; tap its notification to speak.", color = Muted, fontSize = 9.sp)
                 }
                 Switch(
                     checked = isServiceRunning,
