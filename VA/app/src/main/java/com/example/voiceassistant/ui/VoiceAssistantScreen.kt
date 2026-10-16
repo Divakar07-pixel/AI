@@ -418,10 +418,10 @@ private fun WakeWordControl(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Hey Jarvis wake-word service", color = Color(0xFFD8E7FF), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Text("Hey Jarvis detector (pending)", color = Color(0xFFD8E7FF), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 Text(
-                    if (isServiceRunning) "Service enabled • persistent notification shown"
-                    else "Start manually • Android permissions and battery policy apply",
+                    if (isServiceRunning) "Lifecycle demo running • no wake-word model or microphone capture"
+                    else "Detection paused until an approved model is integrated",
                     color = Muted, fontSize = 9.sp, lineHeight = 13.sp, modifier = Modifier.padding(top = 3.dp)
                 )
             }
