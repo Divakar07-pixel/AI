@@ -136,7 +136,7 @@ fun VoiceAssistantScreen(
 
                 if (expanded) {
                     Row(
-                        modifier = Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 18.dp),
+                        modifier = Modifier.weight(1f).fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 18.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Column(
@@ -175,7 +175,7 @@ fun VoiceAssistantScreen(
                     }
                 } else {
                     Column(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = if (medium) 16.dp else 8.dp),
+                        modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = if (medium) 16.dp else 8.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         VoiceOrb(state = state, diameter = if (medium) 112.dp else 94.dp)
