@@ -19,7 +19,7 @@ SUPABASE_URL=https://kzixmmmdvmunnxusyoen.supabase.co
 SUPABASE_ANON_KEY=YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY
 ```
 
-Get the project's publishable key from the Supabase dashboard's API Keys page. A publishable/anon key is intended for client-side use; it is not a provider secret. Never put `OPENAI_API_KEY` in Android code, `local.properties`, or the APK.
+Get the project's publishable key from the Supabase dashboard's API Keys page. A publishable/anon key is intended for client-side use; it is not a provider secret. Never put `GEMINI_API_KEY` in Android code, `local.properties`, or the APK.
 
 ## Enable anonymous sessions
 
@@ -29,10 +29,10 @@ The Android client currently uses Supabase Auth anonymous sign-in to obtain a JW
 
 In Supabase Dashboard → **Edge Functions → Secrets**, add:
 
-- Name: `OPENAI_API_KEY`
-- Value: your provider API key
+- Name: `GEMINI_API_KEY`
+- Value: your Google AI Studio Gemini API key
 
-Optionally add `OPENAI_MODEL` with a model available to your provider account. The API key belongs only in the server-side secrets store. Hosted model usage may incur separate provider charges; do not enable paid usage unless you approve it.
+Optionally add `GEMINI_MODEL` (default: `gemini-2.5-flash`) if you need a model available to your account. The key belongs only in the server-side secrets store. Gemini usage is subject to your Google AI account's quota and pricing; check those terms before use. Never commit the key to Git or include it in the APK.
 
 ## Build and verify
 
