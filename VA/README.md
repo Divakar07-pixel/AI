@@ -10,7 +10,7 @@ The **Voice Assistant** is built as a grounded, dependable prototype for your An
 
 ### Core Principles
 - **No Grand Claims**: The assistant does not claim to control every app or perform arbitrary actions. It strictly adheres to an explicit, safe allowlist.
-- **User-enabled wake word**: The optional Hey Jarvis mode uses openWakeWord with a pretrained ONNX classifier in a microphone foreground service. Gradle downloads the public models during the first build; no API key or paid service is required. See `HEY_MAX_SETUP.md`.
+- **Wake-word status**: Hands-free wake-word detection is paused until commercially compatible audio/model rights are approved. The current service switch is a lifecycle demo only. See `HEY_MAX_SETUP.md`.
 - **Explicit Confirmation Gates**: Asks for confirmation before sending messages, placing calls, deleting data, making purchases, or changing security settings.
 - **Privacy-aware design**: This app does not write microphone audio to files. Android's selected speech-recognition provider may process audio according to that provider's own policies. Optional AI chat sends text conversation history to the configured Supabase Edge Function.
 - **Zero Stealth Operations**: No arbitrary shell scripts, no accessibility service taps, and no permission bypasses.
