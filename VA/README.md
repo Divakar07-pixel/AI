@@ -10,7 +10,7 @@ The **Voice Assistant** is built as a grounded, dependable prototype for your An
 
 ### Core Principles
 - **No Grand Claims**: The assistant does not claim to control every app or perform arbitrary actions. It strictly adheres to an explicit, safe allowlist.
-- **User-enabled wake word**: The optional Hey Max mode uses Picovoice Porcupine in a microphone foreground service. Setup requires a custom Android `.ppn` model and a Picovoice AccessKey; see `HEY_MAX_SETUP.md`.
+- **User-enabled wake word**: The optional Hey Jarvis mode uses openWakeWord with a pretrained ONNX classifier in a microphone foreground service. Gradle downloads the public models during the first build; no API key or paid service is required. See `HEY_MAX_SETUP.md`.
 - **Explicit Confirmation Gates**: Asks for confirmation before sending messages, placing calls, deleting data, making purchases, or changing security settings.
 - **Privacy-aware design**: This app does not write microphone audio to files. Android's selected speech-recognition provider may process audio according to that provider's own policies. Optional AI chat sends text conversation history to the configured Supabase Edge Function.
 - **Zero Stealth Operations**: No arbitrary shell scripts, no accessibility service taps, and no permission bypasses.
@@ -82,19 +82,18 @@ To safeguard your device and personal data, the assistant detects sensitive inte
 
 ---
 
-## 4. Hey Max Offline Wake-Word Mode & Android Limitations
+## 4. Hey Jarvis Offline Wake-Word Mode & Android Limitations
 
-The user can enable Hey Max from the app while it is visible. Porcupine detects the wake phrase locally in a foreground microphone service and shows a persistent notification with a Stop action.
+The user can enable Hey Jarvis from the app while it is visible. openWakeWord detects the wake phrase locally in a foreground microphone service and shows a persistent notification with a Stop action.
 
 ### Required setup
-- Create an **English / Android** custom keyword model for **Hey Max** in [Picovoice Console](https://console.picovoice.ai/).
-- Place the downloaded model at `app/src/main/assets/Hey-Max_android.ppn`.
-- Add `PICOVOICE_ACCESS_KEY=...` to the ignored `VA/local.properties` file, then rebuild.
-- Follow the detailed instructions in [HEY_MAX_SETUP.md](HEY_MAX_SETUP.md).
+- No Picovoice account, AccessKey, or custom model is required.
+- The first Gradle build downloads `hey_jarvis_v0.1.onnx`, `melspectrogram.onnx`, and `embedding_model.onnx` from the public openWakeWord v0.5.1 release and packages them as app assets.
+- The first build needs internet access. See [HEY_MAX_SETUP.md](HEY_MAX_SETUP.md) for details and model licensing notes.
 
 ### Behavior and limitations
-- Wake-word inference is local and does not upload microphone audio. Porcupine may require network access to validate its AccessKey when the engine initializes.
-- When Hey Max is detected, tap the service notification to open the app and begin command speech recognition. This explicit tap is used instead of unexpectedly launching an activity from the background.
+- Wake-word inference runs locally after the models are packaged; the wake-word detector does not upload microphone audio.
+- When Hey Jarvis is detected, tap the service notification to open the app and begin command speech recognition. This explicit tap is used instead of unexpectedly launching an activity from the background.
 - Command transcription still uses Android `SpeechRecognizer`, which may rely on the selected speech-recognition provider and may require internet.
 - The service pauses wake-word capture while a command is being handled and while a sensitive action awaits confirmation. It re-arms after the response completes if the service remains enabled.
 - Android requires microphone runtime permission and a user-started microphone foreground service with a persistent notification. Force-stop, permission revocation, battery restrictions, or OEM policies can stop or restrict background operation. This is not privileged hardware-DSP integration and is not guaranteed to survive every screen-off/Doze condition.
@@ -134,7 +133,7 @@ D:\Automation\VA\
 │   │   │   │   │   ├── SpeechRecognizerManager.kt # Native SpeechRecognizer wrapper
 │   │   │   │   │   └── TextToSpeechManager.kt     # Native TextToSpeech manager
 │   │   │   │   ├── service/
-│   │   │   │   │   ├── VoiceAssistantForegroundService.kt # Porcupine offline wake-word foreground service
+│   │   │   │   │   ├── VoiceAssistantForegroundService.kt # openWakeWord offline wake-word foreground service
 │   │   │   │   │   └── StopServiceReceiver.kt             # Notification Stop button receiver
 │   │   │   │   └── ui/
 │   │   │   │       ├── MainViewModel.kt        # StateFlow & business logic orchestration
@@ -299,7 +298,7 @@ The repository's Gradle wrapper JAR currently cannot load `GradleWrapperMain`, s
 
 ## 8. Known limitations
 
-- Background wake-word detection is not implemented; the foreground-service switch is a lifecycle demo only.
+- Wake-word inference uses a foreground microphone service and is subject to Android background execution and OEM battery restrictions.
 - AI conversation requires a configured Supabase project, anonymous auth, deployed Edge Function, and a server-side provider key.
 - AI replies are text-only. They do not execute Android actions. Supported commands continue through the local parser and explicit confirmation flow.
 - Speech recognition behavior and app/intent availability depend on the Android device and its configured services.
