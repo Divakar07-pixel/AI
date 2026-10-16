@@ -1,5 +1,3 @@
-import java.io.File
-import java.net.URL
 import java.util.Properties
 
 plugins {
@@ -19,42 +17,13 @@ fun localPropertyAsBuildConfig(name: String): String {
     return "\"$value\""
 }
 
-val openWakeWordAssetsDir = layout.buildDirectory.dir("generated/openWakeWordAssets")
-val openWakeWordModelUrls = linkedMapOf(
-    "hey_jarvis_v0.1.onnx" to "https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/hey_jarvis_v0.1.onnx",
-    "melspectrogram.onnx" to "https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/melspectrogram.onnx",
-    "embedding_model.onnx" to "https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/embedding_model.onnx"
-)
-val downloadOpenWakeWordModels by tasks.registering {
-    val outputDir = openWakeWordAssetsDir
-    outputs.dir(outputDir)
-    outputs.upToDateWhen {
-        openWakeWordModelUrls.keys.all { name ->
-            val file = outputDir.get().file(name).asFile
-            file.isFile && file.length() > 0L
-        }
-    }
-    doLast {
-        val directory = outputDir.get().asFile.apply { mkdirs() }
-        openWakeWordModelUrls.forEach { (name, url) ->
-            val destination = File(directory, name)
-            if (!destination.isFile || destination.length() == 0L) {
-                logger.lifecycle("Downloading openWakeWord model: $name")
-                URL(url).openStream().use { input ->
-                    destination.outputStream().use { output -> input.copyTo(output) }
-                }
-                check(destination.length() > 0L) { "Downloaded model is empty: $name" }
-            }
-        }
-    }
-}
-
 android {
     namespace = "com.example.voiceassistant"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.voiceassistant"
+        // Separate application identity so Jarvis installs alongside other assistant apps.
+        applicationId = "com.example.jarvis"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
@@ -67,8 +36,6 @@ android {
             useSupportLibrary = true
         }
     }
-
-    sourceSets.getByName("main").assets.srcDir(openWakeWordAssetsDir)
 
     buildTypes {
         release {
@@ -100,18 +67,7 @@ android {
     }
 }
 
-tasks.named("preBuild").configure {
-    dependsOn(downloadOpenWakeWordModels)
-}
-
-tasks.configureEach {
-    if (name.startsWith("merge") && name.endsWith("Assets")) {
-        dependsOn(downloadOpenWakeWordModels)
-    }
-}
-
 dependencies {
-    implementation("xyz.rementia:openwakeword:0.1.5")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

@@ -9,24 +9,18 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.voiceassistant.MainActivity
 import com.example.voiceassistant.R
-import com.rementia.openwakeword.lib.WakeWordEngine
-import com.rementia.openwakeword.lib.model.WakeWordModel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 /**
- * User-started foreground microphone service. openWakeWord runs Hey Jarvis inference locally.
- * Public pretrained model assets are fetched at build time; no account or API key is required.
+ * Lifecycle-only placeholder for the future wake-word detector.
+ *
+ * It deliberately does not open the microphone, load a model, or claim that
+ * "Hey Jarvis" detection works. Keep this feature disabled until a model with
+ * compatible commercial rights is provided, integrated, and tested.
  */
 class VoiceAssistantForegroundService : Service() {
 
@@ -37,17 +31,12 @@ class VoiceAssistantForegroundService : Service() {
         const val ACTION_STOP_SERVICE = "com.example.voiceassistant.action.STOP_SERVICE"
         const val ACTION_PAUSE_DETECTION = "com.example.voiceassistant.action.PAUSE_DETECTION"
         const val EXTRA_WAKE_WORD_DETECTED = "com.example.voiceassistant.extra.WAKE_WORD_DETECTED"
-        private const val TAG = "HeyJarvisWakeWord"
 
-        private val _isServiceRunning = kotlinx.coroutines.flow.MutableStateFlow(false)
-        val isServiceRunning: kotlinx.coroutines.flow.StateFlow<Boolean> = _isServiceRunning
+        private val _isServiceRunning = MutableStateFlow(false)
+        val isServiceRunning: StateFlow<Boolean> = _isServiceRunning
     }
 
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var detectionJob: Job? = null
-    private var wakeWordEngine: WakeWordEngine? = null
-    private var notificationText = "Listening locally for “Hey Jarvis”."
-    private var wakeWordDetected = false
+    private var notificationText = "Wake-word detection is not configured. Manual microphone input remains available."
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -63,18 +52,17 @@ class VoiceAssistantForegroundService : Service() {
                 return START_NOT_STICKY
             }
             ACTION_PAUSE_DETECTION -> {
-                stopWakeWordDetection()
-                notificationText = "Paused while the assistant handles your command."
+                notificationText = "Wake-word detection is not configured. Use the microphone button in the app."
                 updateNotification()
             }
             else -> {
-                notificationText = "Listening locally for “Hey Jarvis”."
+                notificationText = "Wake-word detection is pending an approved model. Manual input is available."
                 startForegroundCompat()
                 _isServiceRunning.value = true
-                if (wakeWordEngine == null) startWakeWordDetection()
+                updateNotification()
             }
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     private fun startForegroundCompat() {
@@ -90,87 +78,9 @@ class VoiceAssistantForegroundService : Service() {
         }
     }
 
-    private fun startWakeWordDetection() {
-        wakeWordDetected = false
-        val requiredAssets = listOf(
-            "hey_jarvis_v0.1.onnx",
-            "melspectrogram.onnx",
-            "embedding_model.onnx"
-        )
-        val availableAssets = assets.list("")?.toSet().orEmpty()
-        val missingAsset = requiredAssets.firstOrNull { it !in availableAssets }
-        if (missingAsset != null) {
-            showSetupError("Wake-word model missing: $missingAsset. Rebuild with internet access.")
-            return
-        }
-
-        try {
-            val model = WakeWordModel(
-                name = "Hey Jarvis",
-                modelPath = "hey_jarvis_v0.1.onnx",
-                threshold = 0.5f
-            )
-            val engine = WakeWordEngine(
-                context = applicationContext,
-                models = listOf(model)
-            )
-            wakeWordEngine = engine
-            detectionJob = serviceScope.launch {
-                engine.detections.collect { detection ->
-                    if (detection.model.name == "Hey Jarvis" && detection.score >= 0.5f) {
-                        withContext(Dispatchers.Main) { onWakeWordDetected() }
-                    }
-                }
-            }
-            engine.start()
-            notificationText = "Listening locally for “Hey Jarvis”. Tap notification after detection."
-            updateNotification()
-            Log.i(TAG, "Offline Hey Jarvis wake-word detection started.")
-        } catch (error: Exception) {
-            Log.e(TAG, "Could not start openWakeWord detection.", error)
-            stopWakeWordDetection()
-            showSetupError("Wake-word engine failed. Check model assets and app logs.")
-        }
-    }
-
-    private fun onWakeWordDetected() {
-        if (wakeWordDetected) return
-        wakeWordDetected = true
-        stopWakeWordDetection()
-        notificationText = "Hey Jarvis heard you. Tap this notification to speak a command."
-        updateNotification()
-        Log.i(TAG, "Wake word detected; waiting for the user to tap the notification before command capture.")
-    }
-
-    private fun stopWakeWordDetection() {
-        detectionJob?.cancel()
-        detectionJob = null
-        val engine = wakeWordEngine
-        wakeWordEngine = null
-        if (engine != null) {
-            try {
-                engine.stop()
-            } catch (error: Exception) {
-                Log.w(TAG, "openWakeWord stop reported an error.", error)
-            }
-            try {
-                engine.release()
-            } catch (error: Exception) {
-                Log.w(TAG, "openWakeWord cleanup reported an error.", error)
-            }
-        }
-    }
-
-    private fun showSetupError(message: String) {
-        notificationText = message
-        updateNotification()
-        Log.e(TAG, message)
-    }
-
     private fun buildNotification(): Notification {
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            if (wakeWordDetected) putExtra(EXTRA_WAKE_WORD_DETECTED, true)
         }
         val openAppPendingIntent = PendingIntent.getActivity(
             this,
@@ -221,16 +131,13 @@ class VoiceAssistantForegroundService : Service() {
     }
 
     private fun stopForegroundService() {
-        stopWakeWordDetection()
         _isServiceRunning.value = false
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
     override fun onDestroy() {
-        stopWakeWordDetection()
         _isServiceRunning.value = false
-        serviceScope.cancel()
         super.onDestroy()
     }
 }

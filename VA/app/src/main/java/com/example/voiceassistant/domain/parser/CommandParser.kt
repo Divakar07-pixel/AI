@@ -80,8 +80,10 @@ class CommandParser(
         }
 
         // Convert combined phone-launch + call requests to the allowlisted call action.
+        // Treat call intent as higher priority than launching the Phone app. Speech recognition
+        // may omit "and" or insert "then"/punctuation in combined requests.
         Regex(
-            "^(?:(?:open|launch|start)\\s+)?(?:phone|dialer|telephone)\\s+(?:and\\s+)?(?:call|dial)\\s+(.+)$",
+            "^(?:(?:open|launch|start)\\s+)?(?:the\\s+)?(?:phone|dialer|telephone)(?:\\s+app)?(?:\\s*(?:,|and|then)\\s*|\\s+)(?:please\\s+)?(?:call|dial|phone)\\s+(?:to\\s+)?(.+)$",
             RegexOption.IGNORE_CASE
         ).matchEntire(normalized)?.let {
             return checkSensitiveAction("call ${it.groupValues[1].trim()}")!!
@@ -112,6 +114,12 @@ class CommandParser(
 
         // 5. Settings screens
         checkSettings(normalizedLowercase)?.let { return it }
+
+        // 5b. Volume, flashlight, media, battery (local device controls)
+        checkVolume(normalizedLowercase)?.let { return it }
+        checkFlashlight(normalizedLowercase)?.let { return it }
+        checkMedia(normalizedLowercase)?.let { return it }
+        checkBattery(normalizedLowercase)?.let { return it }
 
         // 6. Open specific apps
         checkOpenApp(normalizedLowercase)?.let { return it }
@@ -155,7 +163,19 @@ class CommandParser(
             "camera open pannu" to "open camera",
             "mobile lock pannu" to "lock my phone",
             "phone lock pannu" to "lock my phone",
-            "en phone lock pannu" to "lock my phone"
+            "en phone lock pannu" to "lock my phone",
+            "volume up pannu" to "volume up",
+            "volume down pannu" to "volume down",
+            "sound up pannu" to "volume up",
+            "sound down pannu" to "volume down",
+            "mute pannu" to "mute",
+            "unmute pannu" to "unmute",
+            "torch on pannu" to "turn on flashlight",
+            "torch off pannu" to "turn off flashlight",
+            "flashlight on pannu" to "turn on flashlight",
+            "flashlight off pannu" to "turn off flashlight",
+            "battery enna" to "what is my battery level",
+            "battery status" to "what is my battery level"
         )
         exactAliases[text]?.let { return it }
 
@@ -262,7 +282,7 @@ class CommandParser(
             return AssistantAction.RequireConfirmation(
                 action = SensitiveAction.DeleteData(target),
                 explanation = "High risk: confirm the request to delete '$target'? Automated deletion is blocked."
-            )
+            }
         }
 
         val purchaseMatcher = Pattern.compile(
@@ -398,14 +418,13 @@ class CommandParser(
 
         if (minute !in 0..59) return AssistantAction.Unknown(text, "Alarm minutes must be between 00 and 59.")
         if (amPm.isNotEmpty()) {
-            if (hour !in 1..12) return AssistantAction.Unknown(text, "Use an hour from 1 to 12 with AM or PM.")
+            if (hour !in 1..12) return AssistantAction.Unknown(text, "Alarm hour with am/pm must be between 1 and 12.")
             if (amPm == "pm" && hour < 12) hour += 12
             if (amPm == "am" && hour == 12) hour = 0
         } else {
-            if (hour !in 0..23) return AssistantAction.Unknown(text, "Use a 24-hour time or include morning/afternoon.")
-            // "morning" is normalized to AM; spoken "5 40 tomorrow morning" gets 05:40.
-            if (Regex("\\b(am)\\b").containsMatchIn(phrase) && hour == 12) hour = 0
+            if (hour !in 0..23) return AssistantAction.Unknown(text, "Alarm hour must be between 0 and 23.")
         }
+
         return AssistantAction.SetAlarm(
             hour = hour,
             minute = minute,
@@ -431,6 +450,65 @@ class CommandParser(
                 AssistantAction.OpenSetting(SettingType.GENERAL, "System Settings")
             else -> null
         }
+    }
+
+    private fun checkVolume(text: String): AssistantAction? {
+        val t = text.trim()
+        return when {
+            t in setOf("volume up", "increase volume", "turn volume up", "raise volume", "louder", "volume increase") ->
+                AssistantAction.AdjustVolume(com.example.voiceassistant.domain.model.VolumeDirection.UP)
+            t in setOf("volume down", "decrease volume", "turn volume down", "lower volume", "quieter", "volume decrease") ->
+                AssistantAction.AdjustVolume(com.example.voiceassistant.domain.model.VolumeDirection.DOWN)
+            t in setOf("mute", "mute volume", "silence", "mute sound") ->
+                AssistantAction.AdjustVolume(com.example.voiceassistant.domain.model.VolumeDirection.MUTE)
+            t in setOf("unmute", "unmute volume", "unsilence") ->
+                AssistantAction.AdjustVolume(com.example.voiceassistant.domain.model.VolumeDirection.UNMUTE)
+            else -> null
+        }
+    }
+
+    private fun checkFlashlight(text: String): AssistantAction? {
+        val t = text.trim()
+        return when {
+            t in setOf(
+                "turn on flashlight", "flashlight on", "torch on", "turn on torch",
+                "enable flashlight", "enable torch", "light on"
+            ) -> AssistantAction.SetFlashlight(true)
+            t in setOf(
+                "turn off flashlight", "flashlight off", "torch off", "turn off torch",
+                "disable flashlight", "disable torch", "light off"
+            ) -> AssistantAction.SetFlashlight(false)
+            else -> null
+        }
+    }
+
+    private fun checkMedia(text: String): AssistantAction? {
+        val t = text.trim()
+        return when {
+            t in setOf("play", "play music", "resume", "resume music", "play media") ->
+                AssistantAction.MediaControl(com.example.voiceassistant.domain.model.MediaCommand.PLAY)
+            t in setOf("pause", "pause music", "pause media") ->
+                AssistantAction.MediaControl(com.example.voiceassistant.domain.model.MediaCommand.PAUSE)
+            t in setOf("play pause", "play or pause", "toggle play", "toggle pause") ->
+                AssistantAction.MediaControl(com.example.voiceassistant.domain.model.MediaCommand.PLAY_PAUSE)
+            t in setOf("next", "next song", "next track", "skip", "skip track") ->
+                AssistantAction.MediaControl(com.example.voiceassistant.domain.model.MediaCommand.NEXT)
+            t in setOf("previous", "previous song", "previous track", "last track", "go back track") ->
+                AssistantAction.MediaControl(com.example.voiceassistant.domain.model.MediaCommand.PREVIOUS)
+            else -> null
+        }
+    }
+
+    private fun checkBattery(text: String): AssistantAction? {
+        val t = text.trim()
+        if (t in setOf(
+                "what is my battery level", "what's my battery level", "battery level",
+                "battery status", "how much battery", "battery percentage", "what is the battery"
+            )
+        ) {
+            return AssistantAction.TellBatteryStatus
+        }
+        return null
     }
 
     private fun checkOpenApp(text: String): AssistantAction? {
