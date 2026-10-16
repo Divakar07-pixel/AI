@@ -80,8 +80,10 @@ class CommandParser(
         }
 
         // Convert combined phone-launch + call requests to the allowlisted call action.
+        // Treat call intent as higher priority than launching the Phone app. Speech recognition
+        // may omit "and" or insert "then"/punctuation in combined requests.
         Regex(
-            "^(?:(?:open|launch|start)\\s+)?(?:phone|dialer|telephone)\\s+(?:and\\s+)?(?:call|dial)\\s+(.+)$",
+            "^(?:(?:open|launch|start)\\s+)?(?:the\\s+)?(?:phone|dialer|telephone)(?:\\s+app)?(?:\\s*(?:,|and|then)\\s*|\\s+)(?:please\\s+)?(?:call|dial|phone)\\s+(?:to\\s+)?(.+)$",
             RegexOption.IGNORE_CASE
         ).matchEntire(normalized)?.let {
             return checkSensitiveAction("call ${it.groupValues[1].trim()}")!!
