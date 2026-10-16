@@ -19,6 +19,10 @@ enum class SettingType {
  */
 enum class MessageChannel { SMS, WHATSAPP }
 
+enum class VolumeDirection { UP, DOWN, MUTE, UNMUTE }
+
+enum class MediaCommand { PLAY, PAUSE, PLAY_PAUSE, NEXT, PREVIOUS }
+
 sealed class SensitiveAction {
     data class SendMessage(
         val recipient: String,
@@ -82,6 +86,21 @@ sealed class AssistantAction {
 
     // Search YouTube using the user's query, without requiring confirmation.
     data class SearchYouTube(val query: String) : AssistantAction()
+
+    // Volume control (local AudioManager; no confirmation required).
+    data class AdjustVolume(
+        val direction: VolumeDirection,
+        val steps: Int = 1
+    ) : AssistantAction()
+
+    // Flashlight / torch toggle via CameraManager.
+    data class SetFlashlight(val enabled: Boolean) : AssistantAction()
+
+    // Media transport controls (play / pause / next / previous).
+    data class MediaControl(val command: MediaCommand) : AssistantAction()
+
+    // Read-only battery status.
+    object TellBatteryStatus : AssistantAction()
 
     // Locks the device only after the user has explicitly enabled the device-admin capability.
     object LockDevice : AssistantAction()
