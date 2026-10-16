@@ -14,7 +14,7 @@ import androidx.core.app.NotificationCompat
 import com.example.voiceassistant.MainActivity
 import com.example.voiceassistant.R
 import com.rementia.openwakeword.lib.WakeWordEngine
-import com.rementia.openwakeword.lib.WakeWordModel
+import com.rementia.openwakeword.lib.model.WakeWordModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
