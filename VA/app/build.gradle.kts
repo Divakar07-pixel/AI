@@ -104,6 +104,12 @@ tasks.named("preBuild").configure {
     dependsOn(downloadOpenWakeWordModels)
 }
 
+tasks.configureEach {
+    if (name.startsWith("merge") && name.endsWith("Assets")) {
+        dependsOn(downloadOpenWakeWordModels)
+    }
+}
+
 dependencies {
     implementation("xyz.rementia:openwakeword:0.1.5")
     implementation(libs.androidx.core.ktx)
