@@ -22,7 +22,8 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.voiceassistant"
+        // Separate application identity so Jarvis installs alongside other assistant apps.
+        applicationId = "com.example.jarvis"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
