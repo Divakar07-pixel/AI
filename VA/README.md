@@ -82,22 +82,20 @@ To safeguard your device and personal data, the assistant detects sensitive inte
 
 ---
 
-## 4. Hey Jarvis Offline Wake-Word Mode & Android Limitations
+## 4. Hey Jarvis Wake-Word Mode (Paused)
 
-The user can enable Hey Jarvis from the app while it is visible. openWakeWord detects the wake phrase locally in a foreground microphone service and shows a persistent notification with a Stop action.
+The offline "Hey Jarvis" detector is intentionally **not active in this branch** while commercial data/model rights and an Android-compatible inference path are being cleared. No pretrained wake-word model is downloaded or packaged by the Gradle build. The foreground-service switch is a lifecycle demonstration only and does not capture microphone audio or detect a phrase.
 
-### Required setup
-- No Picovoice account, AccessKey, or custom model is required.
-- The first Gradle build downloads `hey_jarvis_v0.1.onnx`, `melspectrogram.onnx`, and `embedding_model.onnx` from the public openWakeWord v0.5.1 release and packages them as app assets.
-- The first build needs internet access. See [HEY_MAX_SETUP.md](HEY_MAX_SETUP.md) for details and model licensing notes.
+Manual in-app voice input remains available after the user grants microphone permission. Android speech recognition is provider-dependent and may use a network-backed service.
 
-### Behavior and limitations
-- Wake-word inference runs locally after the models are packaged; the wake-word detector does not upload microphone audio.
-- When Hey Jarvis is detected, tap the service notification to open the app and begin command speech recognition. This explicit tap is used instead of unexpectedly launching an activity from the background.
-- Command transcription still uses Android `SpeechRecognizer`, which may rely on the selected speech-recognition provider and may require internet.
-- The service pauses wake-word capture while a command is being handled and while a sensitive action awaits confirmation. It re-arms after the response completes if the service remains enabled.
-- Android requires microphone runtime permission and a user-started microphone foreground service with a persistent notification. Force-stop, permission revocation, battery restrictions, or OEM policies can stop or restrict background operation. This is not privileged hardware-DSP integration and is not guaranteed to survive every screen-off/Doze condition.
-- Sensitive actions continue to use the existing confirmation UI; the wake-word engine does not bypass command parsing, action allowlists, or confirmations.
+To resume wake-word work later:
+1. Add approved positive recordings and a commercially cleared negative-audio corpus with source/license/consent notes.
+2. Train and validate a custom classifier and review every component's license.
+3. Export the model and integrate a compatible Android inference runtime.
+4. Test false activations, miss rate, battery use, screen-off behavior, and Android 17 on the target Pixel device.
+5. Do not show the wake-word feature as active until detection works end-to-end on the device.
+
+Android can still restrict microphone foreground services because of force-stop, permission revocation, background-start rules, battery restrictions, and OEM policies. A user-started service does not guarantee uninterrupted listening.
 
 ## 5. Required Android Permissions
 
@@ -133,7 +131,8 @@ D:\Automation\VA\
 │   │   │   │   │   ├── SpeechRecognizerManager.kt # Native SpeechRecognizer wrapper
 │   │   │   │   │   └── TextToSpeechManager.kt     # Native TextToSpeech manager
 │   │   │   │   ├── service/
-│   │   │   │   │   ├── VoiceAssistantForegroundService.kt # openWakeWord offline wake-word foreground service
+│   │   │   │   │   ├── VoiceAssistantForegroundService.kt # lifecycle demo; no detector is active
+│   │   │   │   │   ├── WakeWordDetector.kt             # future detector interface only
 │   │   │   │   │   └── StopServiceReceiver.kt             # Notification Stop button receiver
 │   │   │   │   └── ui/
 │   │   │   │       ├── MainViewModel.kt        # StateFlow & business logic orchestration
@@ -249,10 +248,10 @@ The project includes unit tests verifying:
 
 ## 9. Privacy Policy & Security Specifications
 
-1. **Audio Handling**: Microphone audio is captured solely during an active listening session and passed directly in memory to Android's `SpeechRecognizer`. Raw audio is never written to disk, cached, or transmitted to any remote servers.
+1. **Audio Handling**: Microphone audio is captured only during an explicit in-app listening session and passed to Android's `SpeechRecognizer`. The configured Android recognition provider may process audio remotely; check its privacy terms. This branch's lifecycle-only wake-word service does not open the microphone.
 2. **Offline Local First**: The allowlist actions (time, date, app launching, timers, alarms, and settings) run entirely on-device using local Android Intents.
 3. **No Hidden Background Activity**: The app does not attempt to inspect screen contents, abuse accessibility services, simulate touch events, or execute arbitrary shell commands.
-4. **Third-Party Integrations**: Laptop or network companion integration is intentionally excluded from Version 1 to maintain a self-contained, auditable native Android codebase.
+4. **Windows companion**: A separate starter desktop client is in `../WindowsCompanion`. It controls a small allowlist of Windows-local actions. It is not paired with Android yet; remote phone control requires a separate authenticated, encrypted, user-approved bridge.
 
 
 ## 7. Optional AI conversation setup
