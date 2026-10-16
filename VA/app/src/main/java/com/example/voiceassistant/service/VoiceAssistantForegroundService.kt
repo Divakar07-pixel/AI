@@ -1,7 +1,5 @@
 package com.example.voiceassistant.service
 
-import ai.picovoice.porcupine.PorcupineException
-import ai.picovoice.porcupine.PorcupineManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -13,16 +11,22 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.example.voiceassistant.BuildConfig
 import com.example.voiceassistant.MainActivity
 import com.example.voiceassistant.R
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.rementia.openwakeword.lib.WakeWordEngine
+import com.rementia.openwakeword.lib.WakeWordModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
- * User-started foreground microphone service. Porcupine performs wake-word inference locally.
- * A custom Android .ppn model and a Picovoice AccessKey are required; neither is committed.
+ * User-started foreground microphone service. openWakeWord runs Hey Jarvis inference locally.
+ * Public pretrained model assets are fetched at build time; no account or API key is required.
  */
 class VoiceAssistantForegroundService : Service() {
 
@@ -33,15 +37,16 @@ class VoiceAssistantForegroundService : Service() {
         const val ACTION_STOP_SERVICE = "com.example.voiceassistant.action.STOP_SERVICE"
         const val ACTION_PAUSE_DETECTION = "com.example.voiceassistant.action.PAUSE_DETECTION"
         const val EXTRA_WAKE_WORD_DETECTED = "com.example.voiceassistant.extra.WAKE_WORD_DETECTED"
-        private const val TAG = "HeyMaxWakeWord"
-        private const val KEYWORD_ASSET = "Hey-Max_android.ppn"
+        private const val TAG = "HeyJarvisWakeWord"
 
-        private val _isServiceRunning = MutableStateFlow(false)
-        val isServiceRunning: StateFlow<Boolean> = _isServiceRunning.asStateFlow()
+        private val _isServiceRunning = kotlinx.coroutines.flow.MutableStateFlow(false)
+        val isServiceRunning: kotlinx.coroutines.flow.StateFlow<Boolean> = _isServiceRunning
     }
 
-    private var porcupineManager: PorcupineManager? = null
-    private var notificationText = "Listening locally for “Hey Max”."
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var detectionJob: Job? = null
+    private var wakeWordEngine: WakeWordEngine? = null
+    private var notificationText = "Listening locally for “Hey Jarvis”."
     private var wakeWordDetected = false
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -59,14 +64,14 @@ class VoiceAssistantForegroundService : Service() {
             }
             ACTION_PAUSE_DETECTION -> {
                 stopWakeWordDetection()
-                notificationText = "Paused while Max handles your command."
+                notificationText = "Paused while the assistant handles your command."
                 updateNotification()
             }
             else -> {
-                notificationText = "Listening locally for “Hey Max”."
+                notificationText = "Listening locally for “Hey Jarvis”."
                 startForegroundCompat()
                 _isServiceRunning.value = true
-                if (porcupineManager == null) startWakeWordDetection()
+                if (wakeWordEngine == null) startWakeWordDetection()
             }
         }
         return START_STICKY
@@ -87,36 +92,44 @@ class VoiceAssistantForegroundService : Service() {
 
     private fun startWakeWordDetection() {
         wakeWordDetected = false
-        if (BuildConfig.PICOVOICE_ACCESS_KEY.isBlank()) {
-            showSetupError("Setup needed: add PICOVOICE_ACCESS_KEY to VA/local.properties.")
-            return
-        }
-        val modelExists = assets.list("")?.contains(KEYWORD_ASSET) == true
-        if (!modelExists) {
-            showSetupError("Setup needed: add $KEYWORD_ASSET to app/src/main/assets.")
+        val requiredAssets = listOf(
+            "hey_jarvis_v0.1.onnx",
+            "melspectrogram.onnx",
+            "embedding_model.onnx"
+        )
+        val availableAssets = assets.list("")?.toSet().orEmpty()
+        val missingAsset = requiredAssets.firstOrNull { it !in availableAssets }
+        if (missingAsset != null) {
+            showSetupError("Wake-word model missing: $missingAsset. Rebuild with internet access.")
             return
         }
 
         try {
-            porcupineManager = PorcupineManager.Builder()
-                .setAccessKey(BuildConfig.PICOVOICE_ACCESS_KEY)
-                .setKeywordPath(KEYWORD_ASSET)
-                .setSensitivity(0.65f)
-                .build(this) {
-                    onWakeWordDetected()
+            val model = WakeWordModel(
+                name = "Hey Jarvis",
+                modelPath = "hey_jarvis_v0.1.onnx",
+                threshold = 0.5f
+            )
+            val engine = WakeWordEngine(
+                context = applicationContext,
+                models = listOf(model)
+            )
+            wakeWordEngine = engine
+            detectionJob = serviceScope.launch {
+                engine.detections.collect { detection ->
+                    if (detection.model.name == "Hey Jarvis" && detection.score >= 0.5f) {
+                        withContext(Dispatchers.Main) { onWakeWordDetected() }
+                    }
                 }
-            porcupineManager?.start()
-            notificationText = "Listening locally for “Hey Max”. Tap to open Max."
+            }
+            engine.start()
+            notificationText = "Listening locally for “Hey Jarvis”. Tap notification after detection."
             updateNotification()
-            Log.i(TAG, "Offline Hey Max wake-word detection started.")
-        } catch (error: PorcupineException) {
-            Log.e(TAG, "Could not start Porcupine wake-word detection.", error)
-            stopWakeWordDetection()
-            showSetupError("Wake-word engine failed. Check AccessKey and Android .ppn model.")
+            Log.i(TAG, "Offline Hey Jarvis wake-word detection started.")
         } catch (error: Exception) {
-            Log.e(TAG, "Unexpected wake-word initialization error.", error)
+            Log.e(TAG, "Could not start openWakeWord detection.", error)
             stopWakeWordDetection()
-            showSetupError("Wake-word setup failed. See app logs for details.")
+            showSetupError("Wake-word engine failed. Check model assets and app logs.")
         }
     }
 
@@ -124,24 +137,26 @@ class VoiceAssistantForegroundService : Service() {
         if (wakeWordDetected) return
         wakeWordDetected = true
         stopWakeWordDetection()
-        notificationText = "Hey Max heard you. Tap this notification to speak a command."
+        notificationText = "Hey Jarvis heard you. Tap this notification to speak a command."
         updateNotification()
-        Log.i(TAG, "Wake word detected; waiting for user to tap the notification before command capture.")
+        Log.i(TAG, "Wake word detected; waiting for the user to tap the notification before command capture.")
     }
 
     private fun stopWakeWordDetection() {
-        val manager = porcupineManager
-        porcupineManager = null
-        if (manager != null) {
+        detectionJob?.cancel()
+        detectionJob = null
+        val engine = wakeWordEngine
+        wakeWordEngine = null
+        if (engine != null) {
             try {
-                manager.stop()
+                engine.stop()
             } catch (error: Exception) {
-                Log.w(TAG, "Porcupine stop reported an error.", error)
+                Log.w(TAG, "openWakeWord stop reported an error.", error)
             }
             try {
-                manager.delete()
+                engine.release()
             } catch (error: Exception) {
-                Log.w(TAG, "Porcupine cleanup reported an error.", error)
+                Log.w(TAG, "openWakeWord cleanup reported an error.", error)
             }
         }
     }
@@ -188,8 +203,7 @@ class VoiceAssistantForegroundService : Service() {
     }
 
     private fun updateNotification() {
-        val manager = getSystemService(NotificationManager::class.java)
-        manager?.notify(NOTIFICATION_ID, buildNotification())
+        getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, buildNotification())
     }
 
     private fun createNotificationChannel() {
@@ -216,6 +230,7 @@ class VoiceAssistantForegroundService : Service() {
     override fun onDestroy() {
         stopWakeWordDetection()
         _isServiceRunning.value = false
+        serviceScope.cancel()
         super.onDestroy()
     }
 }
